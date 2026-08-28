@@ -1,0 +1,27 @@
+# Secrets & credentials — never commit
+.env
+.env.*
+!.env.example
+*-key.json
+*-credentials.json
+service-account*.json
+application_default_credentials.json
+*.pem
+
+# Generated audio output and voice rotation state
+output/
+voice_usage_log.json
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+
+# OS
+.DS_Store
+
+# Local Claude Code workflow config — not part of the published project
+.claude/
