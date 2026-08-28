@@ -2,7 +2,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.build_test import next_test_number, run_build
+from src.build_test import main, next_test_number, run_build
+from src.script_generator import ScriptGenerationError
 from src.tts_client import TTSClientError
 
 
@@ -99,3 +100,128 @@ def test_run_build_dialogue_requires_ffmpeg(tmp_path, monkeypatch):
 
     with pytest.raises(TTSClientError, match="ffmpeg"):
         run_build(input_dir, output_dir)
+
+
+def _fake_generated_section(part: int, script_text: str, topic: str = "a topic"):
+    from src.parser import parse_script
+
+    section = MagicMock()
+    section.script = parse_script(script_text, part)
+    section.script_text = script_text
+    section.topic_category = topic
+    section.questions = f"Q for part {part}"
+    section.answers = f"A for part {part}"
+    return section
+
+
+def test_main_generate_writes_scripts_and_qa_before_building(tmp_path, monkeypatch):
+    input_dir = tmp_path / "transcripts"
+    output_dir = tmp_path / "output"
+
+    fake_sections = {
+        1: _fake_generated_section(1, "# GENDER: A=male\n\nA: Hello.\n", "car hire"),
+        2: _fake_generated_section(2, "Narrator: Hi.\n", "museum tour"),
+    }
+    generate_mock = MagicMock(return_value=fake_sections)
+    monkeypatch.setattr("src.build_test.generate_full_test", generate_mock)
+    monkeypatch.setattr("src.build_test.get_client", lambda: MagicMock())
+    monkeypatch.setattr(
+        "src.build_test.assign_narrator_voice", lambda gender, part: ("en-GB-Neural2-A", "en-GB")
+    )
+    monkeypatch.setattr(
+        "src.build_test.synthesize",
+        lambda client, text, voice_name, language_code=None: b"fake-mp3-bytes",
+    )
+
+    main([
+        str(input_dir),
+        "--generate",
+        "--topic",
+        "a museum tour",
+        "--output-dir",
+        str(output_dir),
+    ])
+
+    generate_mock.assert_called_once_with("a museum tour", parts=None)
+    assert (input_dir / "part1.txt").read_text() == fake_sections[1].script_text
+    assert (input_dir / "part2.txt").read_text() == fake_sections[2].script_text
+
+    qa_path = output_dir / "test1" / "questions_and_answers.md"
+    assert qa_path.exists()
+    qa_text = qa_path.read_text()
+    assert "car hire" in qa_text
+    assert "Q for part 1" in qa_text
+    assert "A for part 2" in qa_text
+
+
+def test_main_generate_without_topic_passes_none(tmp_path, monkeypatch):
+    input_dir = tmp_path / "transcripts"
+    output_dir = tmp_path / "output"
+
+    fake_sections = {1: _fake_generated_section(1, "Narrator: Hi.\n")}
+    generate_mock = MagicMock(return_value=fake_sections)
+    monkeypatch.setattr("src.build_test.generate_full_test", generate_mock)
+    monkeypatch.setattr("src.build_test.get_client", lambda: MagicMock())
+    monkeypatch.setattr(
+        "src.build_test.assign_narrator_voice", lambda gender, part: ("en-GB-Neural2-A", "en-GB")
+    )
+    monkeypatch.setattr(
+        "src.build_test.synthesize",
+        lambda client, text, voice_name, language_code=None: b"fake-mp3-bytes",
+    )
+
+    main([str(input_dir), "--generate", "--output-dir", str(output_dir)])
+
+    generate_mock.assert_called_once_with(None, parts=None)
+
+
+def test_main_generate_with_section_restricts_to_one_part(tmp_path, monkeypatch):
+    input_dir = tmp_path / "transcripts"
+    output_dir = tmp_path / "output"
+
+    fake_sections = {3: _fake_generated_section(3, "Narrator: hi\n", "lecture topic")}
+    generate_mock = MagicMock(return_value=fake_sections)
+    monkeypatch.setattr("src.build_test.generate_full_test", generate_mock)
+    monkeypatch.setattr("src.build_test.get_client", lambda: MagicMock())
+    monkeypatch.setattr(
+        "src.build_test.assign_narrator_voice", lambda gender, part: ("en-GB-Neural2-A", "en-GB")
+    )
+    monkeypatch.setattr(
+        "src.build_test.synthesize",
+        lambda client, text, voice_name, language_code=None: b"fake-mp3-bytes",
+    )
+
+    main([str(input_dir), "--generate", "--section", "3", "--output-dir", str(output_dir)])
+
+    generate_mock.assert_called_once_with(None, parts=[3])
+    assert (input_dir / "part3.txt").exists()
+    assert not (input_dir / "part1.txt").exists()
+
+
+def test_main_generate_error_exits_cleanly(tmp_path, monkeypatch):
+    input_dir = tmp_path / "transcripts"
+
+    monkeypatch.setattr(
+        "src.build_test.generate_full_test",
+        MagicMock(side_effect=ScriptGenerationError("GOOGLE_APPLICATION_CREDENTIALS is not set")),
+    )
+
+    with pytest.raises(SystemExit, match="GOOGLE_APPLICATION_CREDENTIALS is not set"):
+        main([str(input_dir), "--generate"])
+
+
+def test_parse_args_generate_and_positional_input_dir_unambiguous():
+    from src.build_test import parse_args
+
+    args = parse_args(["my_transcripts", "--generate", "--topic", "a bakery", "--section", "2"])
+    assert args.input_dir == "my_transcripts"
+    assert args.generate is True
+    assert args.topic == "a bakery"
+    assert args.section == 2
+
+
+def test_parse_args_section_defaults_to_none():
+    from src.build_test import parse_args
+
+    args = parse_args(["my_transcripts", "--generate"])
+    assert args.section is None

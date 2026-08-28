@@ -106,6 +106,19 @@ GOOGLE_APPLICATION_CREDENTIALS=/Users/yourname/Desktop/ielts-tts-runner-key.json
 
 `.env` is listed in `.gitignore` and is never uploaded anywhere by this tool — it stays on your computer.
 
+### 3.7 (Optional) Enable automatic script generation with Gemini
+
+If you don't want to bring your own transcripts, this tool can write them for you with Gemini, Google's AI model — using the exact same service-account key from Step 3.5, no separate account or key needed. Skip this step if you'll always supply your own `partN.txt` files.
+
+1. In the Google Cloud Console search bar, type **Vertex AI API** and click on it.
+2. Click the blue **Enable** button.
+3. In the search bar, type **IAM** and open **IAM & Admin**.
+4. Find the service account you created in Step 3.4 (its email ends in `.iam.gserviceaccount.com`) and click the pencil/edit icon on its row.
+5. Click **Add another role**, search for **Vertex AI User**, and select it.
+6. Click **Save**.
+
+That's it — no new key, no new `.env` entry. See [Step 4's "Optional: generate the script automatically"](#optional-generate-the-script-automatically-with-gemini) section below for how to use it.
+
 ---
 
 ## Step 4 — Generate your audio
@@ -140,11 +153,35 @@ You'll see progress printed in the terminal as each part is generated.
 python run.py path/to/my_transcripts --output-dir path/to/my_output
 ```
 
+### Optional: generate the script automatically with Gemini
+
+Don't have transcripts of your own? Skip straight to audio — this generates a fresh mock test with Gemini first, then builds the audio exactly as above. Requires the one-time setup in [Step 3.7](#37-optional-enable-automatic-script-generation-with-gemini).
+
+```bash
+python run.py --generate
+```
+
+This writes fresh `part1.txt`-`part4.txt` files into `transcripts/` (overwriting any that were there), each one validated against the same format checker the audio pipeline uses before being accepted — if Gemini's output doesn't match, it's asked to fix it automatically, up to a few tries, before you ever see a result. Alongside the usual `output/testN/part1.mp3` etc., you'll also get `output/testN/questions_and_answers.md` — a matching question set and answer key for the test you just generated.
+
+**Optional flags:**
+
+```bash
+# Nudge the topic (Gemini still avoids repeating your last few generated topics either way)
+python run.py --generate --topic "a university library tour"
+
+# Only regenerate one section instead of a full 4-part test
+python run.py --generate --section 3
+```
+
+Each generation call prints how many tokens it used, so you can see at a glance how little this costs against your GCP credit — a full 4-part test is typically a few thousand tokens total, a small fraction of a cent.
+
 ---
 
 ## How much does this cost?
 
-Google Cloud Text-to-Speech includes a free monthly allowance (millions of characters, refreshed monthly) that comfortably covers casual practice-test generation. A full 4-part IELTS Listening test is typically a few thousand characters — a tiny fraction of that allowance. Check your actual usage any time at **Billing → Reports** in the Google Cloud Console.
+Google Cloud Text-to-Speech includes a free monthly allowance (millions of characters, refreshed monthly) that comfortably covers casual practice-test generation. A full 4-part IELTS Listening test is typically a few thousand characters — a tiny fraction of that allowance.
+
+If you also use `--generate`, Gemini 2.5 Flash on Vertex AI is priced per token and is similarly negligible for occasional test generation — a full 4-part test's worth of script + questions + answers is typically a few thousand tokens, well under a cent. Check your actual usage any time at **Billing → Reports** in the Google Cloud Console.
 
 ---
 
@@ -158,6 +195,9 @@ Google Cloud Text-to-Speech includes a free monthly allowance (millions of chara
 | A part is `SKIPPED — not found` | That `partN.txt` file isn't in your transcripts folder |
 | A part is `SKIPPED — <parsing error>` | That transcript file doesn't match the expected `Speaker: text` format — check it wasn't edited by hand |
 | `WARNING: no gender declared` | That speaker has no `# GENDER:` line in the transcript header — a voice is still assigned, just without gender matching |
+| `--generate` fails with a permission/403 error | The service account is missing the **Vertex AI User** role — see Step 3.7 |
+| `--generate` fails with `Vertex AI API` not enabled | You skipped enabling the Vertex AI API in Step 3.7 |
+| `Gemini's output still didn't validate after 3 attempts` | Rare — Gemini's output repeatedly didn't match the required transcript format even after being asked to fix it. Just run `--generate` again |
 
 ---
 
@@ -167,15 +207,16 @@ Google Cloud Text-to-Speech includes a free monthly allowance (millions of chara
 .
 ├── run.py                # entry point: python run.py
 ├── src/
-│   ├── parser.py          # reads and validates transcript files
-│   ├── voices.py          # gender-aware voice pool and assignment
-│   ├── tts_client.py       # Google Cloud Text-to-Speech wrapper
-│   └── build_test.py      # orchestrates a full test build
+│   ├── parser.py            # reads and validates transcript files
+│   ├── voices.py            # gender-aware voice pool and assignment
+│   ├── tts_client.py        # Google Cloud Text-to-Speech wrapper
+│   ├── script_generator.py  # optional: writes scripts with Gemini (Vertex AI)
+│   └── build_test.py        # orchestrates a full test build
 ├── tests/                 # automated tests (pytest) — no GCP account needed
 ├── notebooks/
 │   └── demo.ipynb         # walkthrough: parsing → voice assignment → synthesis, with playable audio
-├── transcripts/           # put your part1.txt-part4.txt files here
-├── output/                # generated audio appears here (test1/, test2/, ...)
+├── transcripts/           # put your part1.txt-part4.txt files here (or let --generate write them)
+├── output/                # generated audio + questions_and_answers.md appears here (test1/, test2/, ...)
 ├── requirements.txt
 └── .env.example
 ```

@@ -15,6 +15,7 @@ import sys
 from pathlib import Path
 
 from .parser import ParsedScript, ScriptParseError, parse_script_file
+from .script_generator import ScriptGenerationError, generate_full_test
 from .tts_client import TTSClientError, get_client, synthesize
 from .voices import assign_dialogue_voices, assign_narrator_voice
 
@@ -154,15 +155,73 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default="output",
         help="Folder to create numbered test<N> subfolders in (default: ./output)",
     )
+    parser.add_argument(
+        "--generate",
+        action="store_true",
+        help=(
+            "Generate a fresh test with Gemini (Vertex AI) before synthesizing audio "
+            "(writes partN.txt into input_dir, overwriting any that exist there)."
+        ),
+    )
+    parser.add_argument(
+        "--topic",
+        default=None,
+        metavar="TOPIC",
+        help=(
+            "Optional topic hint for --generate, e.g. --topic 'a university library tour'. "
+            "Ignored without --generate."
+        ),
+    )
+    parser.add_argument(
+        "--section",
+        type=int,
+        choices=[1, 2, 3, 4],
+        default=None,
+        metavar="N",
+        help=(
+            "Restrict --generate to a single section (1-4) instead of a full 4-part test. "
+            "Ignored without --generate."
+        ),
+    )
     return parser.parse_args(argv)
 
 
 def main(argv: list[str] | None = None) -> None:
     args = parse_args(argv)
+    input_dir = Path(args.input_dir)
+
+    generated: dict[int, object] = {}
+    if args.generate:
+        print("Generating a new test with Gemini (Vertex AI)...")
+        parts = [args.section] if args.section else None
+        try:
+            generated = generate_full_test(args.topic, parts=parts)
+        except ScriptGenerationError as exc:
+            sys.exit(f"ERROR: {exc}")
+
+        input_dir.mkdir(parents=True, exist_ok=True)
+        for part_num, section in generated.items():
+            path = input_dir / f"part{part_num}.txt"
+            path.write_text(section.script_text, encoding="utf-8")
+            print(f"  wrote {path}")
+
     try:
-        test_dir = run_build(Path(args.input_dir), Path(args.output_dir))
+        test_dir = run_build(input_dir, Path(args.output_dir))
     except TTSClientError as exc:
         sys.exit(f"ERROR: {exc}")
+
+    if generated:
+        qa_path = test_dir / "questions_and_answers.md"
+        qa_lines = []
+        for part_num in sorted(generated):
+            section = generated[part_num]
+            qa_lines.append(f"# Part {part_num} — {section.topic_category}\n")
+            qa_lines.append("## Questions\n")
+            qa_lines.append(section.questions + "\n")
+            qa_lines.append("## Answer key\n")
+            qa_lines.append(section.answers + "\n")
+        qa_path.write_text("\n".join(qa_lines), encoding="utf-8")
+        print(f"  wrote {qa_path}")
 
     print(f"\nDone. Audio saved to: {test_dir}")
 

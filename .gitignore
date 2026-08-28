@@ -8,9 +8,10 @@ service-account*.json
 application_default_credentials.json
 *.pem
 
-# Generated audio output and voice rotation state
+# Generated audio output and voice/topic rotation state
 output/
 voice_usage_log.json
+script_generation_log.json
 
 # Python
 __pycache__/
