@@ -128,7 +128,7 @@ python run.py
 
 That's it. The tool will:
 - Read each transcript file it finds (missing files are skipped with a warning, not an error)
-- Pick a distinct, gender-matched British voice for each speaker
+- Pick a distinct, gender-matched voice for each speaker (British for Parts 1-2; British, Australian, Indian, or American for Parts 3-4)
 - Generate the audio for each part
 - Save everything into a new, automatically numbered folder: `output/test1/`, then `output/test2/` next time, and so on — so you never overwrite a previous practice test
 
