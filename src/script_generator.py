@@ -33,41 +33,67 @@ LOG_MAX_ENTRIES = 20
 GENERATION_LOG_PATH = Path(__file__).resolve().parent.parent / "script_generation_log.json"
 
 TOPIC_MARKER = "<<<TOPIC_CATEGORY>>>"
+QUESTION_TYPES_MARKER = "<<<QUESTION_TYPES>>>"
 SCRIPT_MARKER = "<<<SCRIPT>>>"
 QUESTIONS_MARKER = "<<<QUESTIONS>>>"
 ANSWERS_MARKER = "<<<ANSWERS>>>"
+
+# Parts 1 and 4 lean heavily on one dominant type in the real exam (dominant,
+# occasional secondary type). Parts 2 and 3 genuinely mix 2-3 types with
+# similar frequency in practice, so they get real avoidance instead of a soft
+# nudge — see _type_variety_guidance().
+DOMINANT_TYPE_PARTS: dict[int, tuple[str, str]] = {
+    1: ("form/note completion", "matching"),
+    4: ("note/summary completion", "short-answer"),
+}
+BALANCED_TYPE_PARTS = {2, 3}
+
+DOMINANT_TYPE_LOOKBACK = 5
+BALANCED_TYPE_LOOKBACK = 2
+MIN_HISTORY_FOR_TYPE_NUDGE = 3
 
 SECTION_SPECS: dict[int, str] = {
     1: (
         "Section 1 — everyday transactional conversation, exactly 2 speakers "
         "(e.g. booking a service, an enquiry, form-filling). Question types: "
-        "form completion, note completion — heavy on spelling and number "
-        "accuracy. This is the easiest section; information is given fairly "
-        "directly, but spelling/number distractors are common."
+        "form completion and note completion are the dominant types in real "
+        "IELTS Listening — use one or both as the default, heavy on spelling "
+        "and number accuracy. Matching appears only occasionally, as the "
+        "exception rather than the norm. This is the easiest section; "
+        "information is given fairly directly, but spelling/number "
+        "distractors are common."
     ),
     2: (
         "Section 2 — everyday monologue, exactly 1 speaker (e.g. a guided "
         "tour, a talk about a facility or service, an announcement, an "
         "induction talk). Question types: multiple choice, matching (e.g. "
-        "facilities to locations), note/table completion. Easy-medium "
-        "difficulty; longer uninterrupted stretches require sustained "
-        "attention rather than back-and-forth tracking."
+        "facilities to locations, or map/plan labelling), and note/table "
+        "completion all appear with genuinely similar frequency in real "
+        "tests — combine 2-3 of them across the section rather than using "
+        "just one throughout. Easy-medium difficulty; longer uninterrupted "
+        "stretches require sustained attention rather than back-and-forth "
+        "tracking."
     ),
     3: (
         "Section 3 — academic conversation, 2 to 4 speakers (e.g. students "
         "discussing an assignment or project, with or without a tutor). "
-        "Question types: matching opinions to speakers, multiple choice, "
-        "short-answer. Medium-hard difficulty — speakers may disagree or "
-        "revise their views mid-conversation; this is where the "
-        "self-correction/distractor pattern matters most."
+        "Question types: multiple choice and matching opinions to speakers "
+        "are the two dominant types here, appearing with similar frequency; "
+        "short-answer appears too, but less often. Combine 2-3 types across "
+        "the section rather than using just one throughout. Medium-hard "
+        "difficulty — speakers may disagree or revise their views "
+        "mid-conversation; this is where the self-correction/distractor "
+        "pattern matters most."
     ),
     4: (
         "Section 4 — academic monologue/lecture, exactly 1 speaker, in a "
         "more formal, written-like register than Sections 1-3. Question "
-        "types: note/summary completion (no word bank — the hardest "
-        "variant), short-answer. This is the hardest section: dense "
-        "information delivered at a steady, uninterrupted pace with no "
-        "back-and-forth to re-anchor attention."
+        "types: note/summary completion (no word bank) is the classic "
+        "dominant type here — it's specifically what makes this section the "
+        "hardest — and should be the default. Short-answer appears "
+        "sometimes as a secondary type, not a replacement. This is the "
+        "hardest section: dense information delivered at a steady, "
+        "uninterrupted pace with no back-and-forth to re-anchor attention."
     ),
 }
 
@@ -96,10 +122,12 @@ SYSTEM_PROMPT = """You are an expert IELTS Listening test writer, generating one
 
 ## Output format
 
-Return exactly these four blocks, in this order, with no commentary before, after, or between them:
+Return exactly these five blocks, in this order, with no commentary before, after, or between them:
 
 <<<TOPIC_CATEGORY>>>
 A short "category - specific topic" line, e.g. "booking/enquiry - car hire". One line only.
+<<<QUESTION_TYPES>>>
+A short comma-separated list of the question type(s) you actually used in this section, e.g. "form completion, note completion". One line only.
 <<<SCRIPT>>>
 The full transcript for this section, following every rule above.
 <<<QUESTIONS>>>
@@ -119,8 +147,10 @@ QUIZ_SYSTEM_PROMPT = """You are an expert IELTS Listening test writer. You will 
 
 ## Output format
 
-Return exactly these two blocks, with no commentary before, after, or between them:
+Return exactly these three blocks, in this order, with no commentary before, after, or between them:
 
+<<<QUESTION_TYPES>>>
+A short comma-separated list of the question type(s) you actually used, e.g. "multiple choice, matching". One line only.
 <<<QUESTIONS>>>
 The matching question set for this section, following the question types and chronology rule above.
 <<<ANSWERS>>>
@@ -137,6 +167,7 @@ class GeneratedSection:
     script: ParsedScript
     script_text: str
     topic_category: str
+    question_types: list[str]
     questions: str
     answers: str
 
@@ -194,26 +225,54 @@ def _save_log(entries: list[dict], log_path: Path) -> None:
 
 def _recent_topics(part: int, log_path: Path) -> list[str]:
     entries = _load_log(log_path)
-    return [e["topic_category"] for e in entries if e.get("part") == part][-RECENT_TOPICS_PER_PART:]
+    return [
+        e["topic_category"] for e in entries
+        if e.get("part") == part and e.get("topic_category")
+    ][-RECENT_TOPICS_PER_PART:]
 
 
-def _record_topic(part: int, topic_category: str, log_path: Path) -> None:
+def _recent_question_types(part: int, log_path: Path, limit: int) -> list[list[str]]:
+    entries = _load_log(log_path)
+    return [
+        e["question_types"] for e in entries
+        if e.get("part") == part and e.get("question_types")
+    ][-limit:]
+
+
+def _parse_question_types(raw: str) -> list[str]:
+    return [t.strip() for t in raw.split(",") if t.strip()]
+
+
+def _record_generation(
+    part: int,
+    topic_category: str | None,
+    question_types: list[str],
+    log_path: Path,
+) -> None:
+    """Record one successful generation for cross-run topic/type variety.
+
+    topic_category is None for --quiz (the transcript's topic isn't
+    Gemini's to name — only the question types it chose are tracked there).
+    """
     entries = _load_log(log_path)
     entries.append({
         "part": part,
         "topic_category": topic_category,
+        "question_types": question_types,
         "timestamp": datetime.now(timezone.utc).isoformat(),
     })
     _save_log(entries, log_path)
 
 
 _BLOCK_RE = re.compile(
-    r"<<<TOPIC_CATEGORY>>>\s*\n(?P<topic>.*?)\n<<<SCRIPT>>>\s*\n(?P<script>.*?)\n"
+    r"<<<TOPIC_CATEGORY>>>\s*\n(?P<topic>.*?)\n<<<QUESTION_TYPES>>>\s*\n(?P<question_types>.*?)\n"
+    r"<<<SCRIPT>>>\s*\n(?P<script>.*?)\n"
     r"<<<QUESTIONS>>>\s*\n(?P<questions>.*?)\n<<<ANSWERS>>>\s*\n(?P<answers>.*)",
     re.DOTALL,
 )
 
 _QUIZ_BLOCK_RE = re.compile(
+    r"<<<QUESTION_TYPES>>>\s*\n(?P<question_types>.*?)\n"
     r"<<<QUESTIONS>>>\s*\n(?P<questions>.*?)\n<<<ANSWERS>>>\s*\n(?P<answers>.*)",
     re.DOTALL,
 )
@@ -221,43 +280,50 @@ _QUIZ_BLOCK_RE = re.compile(
 _CAST_SIZE_RULES: dict[int, tuple[int, int]] = {1: (2, 2), 2: (1, 1), 3: (2, 4), 4: (1, 1)}
 
 
-def _parse_response(text: str, part: int) -> tuple[str, str, str, str]:
-    """Split a raw Gemini response into (topic_category, script_text, questions, answers)."""
+def _parse_response(text: str, part: int) -> tuple[str, list[str], str, str, str]:
+    """Split a raw Gemini response into (topic_category, question_types, script_text, questions, answers)."""
     m = _BLOCK_RE.search(text)
     if not m:
         raise ScriptParseError(
-            "Response did not contain the four required blocks "
-            "(<<<TOPIC_CATEGORY>>>, <<<SCRIPT>>>, <<<QUESTIONS>>>, <<<ANSWERS>>>)."
+            "Response did not contain the five required blocks "
+            "(<<<TOPIC_CATEGORY>>>, <<<QUESTION_TYPES>>>, <<<SCRIPT>>>, <<<QUESTIONS>>>, <<<ANSWERS>>>)."
         )
     topic = m.group("topic").strip()
+    question_types = _parse_question_types(m.group("question_types"))
     script_text = m.group("script").strip() + "\n"
     questions = m.group("questions").strip()
     answers = m.group("answers").strip()
 
+    if not question_types:
+        raise ScriptParseError("The <<<QUESTION_TYPES>>> block was empty.")
     if not questions:
         raise ScriptParseError("The <<<QUESTIONS>>> block was empty.")
     if not answers:
         raise ScriptParseError("The <<<ANSWERS>>> block was empty.")
 
-    return topic, script_text, questions, answers
+    return topic, question_types, script_text, questions, answers
 
 
-def _parse_quiz_response(text: str) -> tuple[str, str]:
-    """Split a raw Gemini quiz-only response into (questions, answers)."""
+def _parse_quiz_response(text: str) -> tuple[list[str], str, str]:
+    """Split a raw Gemini quiz-only response into (question_types, questions, answers)."""
     m = _QUIZ_BLOCK_RE.search(text)
     if not m:
         raise ScriptParseError(
-            "Response did not contain the two required blocks (<<<QUESTIONS>>>, <<<ANSWERS>>>)."
+            "Response did not contain the three required blocks "
+            "(<<<QUESTION_TYPES>>>, <<<QUESTIONS>>>, <<<ANSWERS>>>)."
         )
+    question_types = _parse_question_types(m.group("question_types"))
     questions = m.group("questions").strip()
     answers = m.group("answers").strip()
 
+    if not question_types:
+        raise ScriptParseError("The <<<QUESTION_TYPES>>> block was empty.")
     if not questions:
         raise ScriptParseError("The <<<QUESTIONS>>> block was empty.")
     if not answers:
         raise ScriptParseError("The <<<ANSWERS>>> block was empty.")
 
-    return questions, answers
+    return question_types, questions, answers
 
 
 def _validate_cast_size(script: ParsedScript, part: int) -> None:
@@ -302,7 +368,53 @@ def _validate_question_count(questions_text: str, part: int) -> None:
         )
 
 
-def _user_prompt(part: int, topic_hint: str | None, recent_topics: list[str]) -> str:
+def _type_variety_guidance(part: int, log_path: Path) -> str:
+    """Cross-run question-type variety, matching real IELTS's uneven per-part distribution.
+
+    Parts 1/4 lean heavily on one dominant type in the real exam — this only
+    adds a soft nudge toward the occasional secondary type, and only once
+    there's enough history to show it's been genuinely absent for a while
+    (never on a near-empty log, and never a requirement to alternate).
+
+    Parts 2/3 are genuinely balanced in practice, so this actively discourages
+    repeating the exact same type combination as recent runs — the same
+    avoid-repeats approach _recent_topics() already uses for topics.
+    """
+    if part in DOMINANT_TYPE_PARTS:
+        dominant, secondary = DOMINANT_TYPE_PARTS[part]
+        recent = _recent_question_types(part, log_path, DOMINANT_TYPE_LOOKBACK)
+        if len(recent) < MIN_HISTORY_FOR_TYPE_NUDGE:
+            return ""
+        secondary_seen = any(secondary.lower() in (t.lower() for t in types) for types in recent)
+        if secondary_seen:
+            return ""
+        dominant_cap = dominant[0].upper() + dominant[1:]
+        return (
+            f"\nThe last {len(recent)} Part {part} sections have all stuck to {dominant} "
+            f"without any {secondary} — if it fits naturally this time, you could work in a "
+            f"touch of {secondary} as well, but only if it doesn't feel forced. {dominant_cap} "
+            "should still be the primary type either way."
+        )
+
+    if part in BALANCED_TYPE_PARTS:
+        recent = _recent_question_types(part, log_path, BALANCED_TYPE_LOOKBACK)
+        if not recent:
+            return ""
+        combos = "; ".join(", ".join(types) for types in recent)
+        return (
+            "\nAvoid repeating the same combination of question types used recently for this "
+            f"section: {combos}. Choose a different mix from the types listed above."
+        )
+
+    return ""
+
+
+def _user_prompt(
+    part: int,
+    topic_hint: str | None,
+    recent_topics: list[str],
+    log_path: Path,
+) -> str:
     expected = _expected_question_range(part)
     lines = [
         f"Generate Part {part} of a fresh IELTS Listening mock test now.",
@@ -310,6 +422,9 @@ def _user_prompt(part: int, topic_hint: str | None, recent_topics: list[str]) ->
         SECTION_SPECS[part],
         f"\nNumber the questions {expected.start}-{expected[-1]} (exactly 10 questions).",
     ]
+    type_guidance = _type_variety_guidance(part, log_path)
+    if type_guidance:
+        lines.append(type_guidance)
     if recent_topics:
         lines.append(
             "\nAvoid repeating these recently-used topics for this section: "
@@ -331,7 +446,7 @@ def generate_section(
     client = _get_client()
     recent_topics = _recent_topics(part, log_path)
 
-    contents: list = [_user_prompt(part, topic_hint, recent_topics)]
+    contents: list = [_user_prompt(part, topic_hint, recent_topics, log_path)]
     last_error: Exception | None = None
 
     for attempt in range(1, MAX_ATTEMPTS + 1):
@@ -362,7 +477,7 @@ def generate_section(
         response_text = response.text or ""
 
         try:
-            topic, script_text, questions, answers = _parse_response(response_text, part)
+            topic, question_types, script_text, questions, answers = _parse_response(response_text, part)
             script = parse_script(script_text, part)
             _validate_cast_size(script, part)
             _validate_question_count(questions, part)
@@ -374,16 +489,17 @@ def generate_section(
             contents.append(response_text)
             contents.append(
                 "Your last response didn't match the required format: "
-                f"{exc}\nFix this and resend the complete response — all four blocks, "
+                f"{exc}\nFix this and resend the complete response — all five blocks, "
                 "for this same section."
             )
             continue
 
-        _record_topic(part, topic, log_path)
+        _record_generation(part, topic, question_types, log_path)
         return GeneratedSection(
             script=script,
             script_text=script_text,
             topic_category=topic,
+            question_types=question_types,
             questions=questions,
             answers=answers,
         )
@@ -404,19 +520,28 @@ def generate_full_test(
     return {part: generate_section(part, topic_hint, log_path) for part in parts}
 
 
-def generate_quiz(part: int, script_text: str) -> tuple[str, str]:
+def generate_quiz(
+    part: int,
+    script_text: str,
+    log_path: Path = GENERATION_LOG_PATH,
+) -> tuple[str, str]:
     """Generate a matching question set + answer key for an already-written script.
 
     Used for --quiz on a hand-written or previously-generated transcript,
-    where the dialogue itself is fixed and only needs a matching quiz.
+    where the dialogue itself is fixed and only needs a matching quiz. Gets
+    the same cross-run type-variety guidance as generate_section(), and
+    records the type(s) chosen to the same log — with no topic_category,
+    since the transcript's topic isn't Gemini's to name here.
     """
     from google.genai import types
 
     client = _get_client()
     expected = _expected_question_range(part)
+    type_guidance = _type_variety_guidance(part, log_path)
     contents: list = [
         f"{SECTION_SPECS[part]}\n\n"
-        f"Number the questions {expected.start}-{expected[-1]} (exactly 10 questions).\n\n"
+        f"Number the questions {expected.start}-{expected[-1]} (exactly 10 questions)."
+        f"{type_guidance}\n\n"
         f"Here is the transcript for this section:\n\n{script_text}"
     ]
     last_error: Exception | None = None
@@ -445,9 +570,8 @@ def generate_quiz(part: int, script_text: str) -> tuple[str, str]:
         response_text = response.text or ""
 
         try:
-            questions, answers = _parse_quiz_response(response_text)
+            question_types, questions, answers = _parse_quiz_response(response_text)
             _validate_question_count(questions, part)
-            return questions, answers
         except ScriptParseError as exc:
             last_error = exc
             print(f"  [Gemini] Part {part} quiz attempt {attempt} failed validation: {exc}", file=sys.stderr)
@@ -456,9 +580,12 @@ def generate_quiz(part: int, script_text: str) -> tuple[str, str]:
             contents.append(response_text)
             contents.append(
                 f"Your last response didn't match the required format: {exc}\n"
-                "Fix this and resend the complete response — both blocks."
+                "Fix this and resend the complete response — all three blocks."
             )
             continue
+
+        _record_generation(part, None, question_types, log_path)
+        return questions, answers
 
     raise ScriptGenerationError(
         f"Part {part} quiz: Gemini's output still didn't validate after {MAX_ATTEMPTS} attempts. "

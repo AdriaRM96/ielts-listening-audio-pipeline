@@ -3,15 +3,22 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from src.script_generator import (
+    BALANCED_TYPE_LOOKBACK,
+    DOMINANT_TYPE_LOOKBACK,
     MAX_ATTEMPTS,
+    MIN_HISTORY_FOR_TYPE_NUDGE,
     QUIZ_SYSTEM_PROMPT,
     SYSTEM_PROMPT,
     ScriptGenerationError,
     _expected_question_range,
+    _parse_question_types,
     _parse_quiz_response,
     _parse_response,
+    _recent_question_types,
     _recent_topics,
-    _record_topic,
+    _record_generation,
+    _type_variety_guidance,
+    _user_prompt,
     _validate_cast_size,
     _validate_question_count,
     generate_full_test,
@@ -31,6 +38,8 @@ def _ten_answers(start: int = 1) -> str:
 
 VALID_PART1_RESPONSE = f"""<<<TOPIC_CATEGORY>>>
 booking/enquiry - car hire
+<<<QUESTION_TYPES>>>
+form completion, note completion
 <<<SCRIPT>>>
 # GENDER: Agent=male
 # GENDER: Client=female
@@ -45,6 +54,8 @@ Client: I'd like to book a car for next week.
 
 MISSING_QUESTIONS_PART1_RESPONSE = """<<<TOPIC_CATEGORY>>>
 booking/enquiry - car hire
+<<<QUESTION_TYPES>>>
+form completion, note completion
 <<<SCRIPT>>>
 # GENDER: Agent=male
 # GENDER: Client=female
@@ -61,6 +72,8 @@ Client: I'd like to book a car for next week.
 
 INVALID_PART1_RESPONSE = """<<<TOPIC_CATEGORY>>>
 booking/enquiry - car hire
+<<<QUESTION_TYPES>>>
+form completion
 <<<SCRIPT>>>
 This line has no speaker colon prefix at all so it will fail parsing.
 <<<QUESTIONS>>>
@@ -71,6 +84,8 @@ This line has no speaker colon prefix at all so it will fail parsing.
 
 WRONG_CAST_SIZE_PART1_RESPONSE = """<<<TOPIC_CATEGORY>>>
 booking/enquiry - hotel
+<<<QUESTION_TYPES>>>
+form completion
 <<<SCRIPT>>>
 # GENDER: Agent=male
 
@@ -99,31 +114,44 @@ def test_system_prompt_contains_required_rule_fragments():
     assert "1 to 30 characters" in SYSTEM_PROMPT
     assert "# GENDER:" in SYSTEM_PROMPT
     assert "<<<TOPIC_CATEGORY>>>" in SYSTEM_PROMPT
+    assert "<<<QUESTION_TYPES>>>" in SYSTEM_PROMPT
     assert "<<<SCRIPT>>>" in SYSTEM_PROMPT
     assert "<<<QUESTIONS>>>" in SYSTEM_PROMPT
     assert "<<<ANSWERS>>>" in SYSTEM_PROMPT
     assert "capitalised word followed by a colon" in SYSTEM_PROMPT
 
 
+def test_quiz_system_prompt_includes_question_types_block():
+    assert "<<<QUESTION_TYPES>>>" in QUIZ_SYSTEM_PROMPT
+    assert "<<<QUESTIONS>>>" in QUIZ_SYSTEM_PROMPT
+    assert "<<<ANSWERS>>>" in QUIZ_SYSTEM_PROMPT
+    assert "<<<SCRIPT>>>" not in QUIZ_SYSTEM_PROMPT
+
+
 # --- response parsing -----------------------------------------------------
 
 
 def test_parse_response_valid():
-    topic, script_text, questions, answers = _parse_response(VALID_PART1_RESPONSE, part=1)
+    topic, question_types, script_text, questions, answers = _parse_response(
+        VALID_PART1_RESPONSE, part=1
+    )
     assert topic == "booking/enquiry - car hire"
+    assert question_types == ["form completion", "note completion"]
     assert "Agent: How can I help you today?" in script_text
     assert "1. Question 1?" in questions
     assert "1. Answer 1" in answers
 
 
 def test_parse_response_missing_blocks_raises():
-    with pytest.raises(ScriptParseError, match="four required blocks"):
+    with pytest.raises(ScriptParseError, match="five required blocks"):
         _parse_response("just some random text", part=1)
 
 
 def test_parse_response_empty_questions_raises():
     text = """<<<TOPIC_CATEGORY>>>
 booking/enquiry - car hire
+<<<QUESTION_TYPES>>>
+form completion
 <<<SCRIPT>>>
 # GENDER: Agent=male
 # GENDER: Client=female
@@ -136,6 +164,37 @@ Client: I'd like to book a car for next week.
 """
     with pytest.raises(ScriptParseError, match="QUESTIONS"):
         _parse_response(text, part=1)
+
+
+def test_parse_response_empty_question_types_raises():
+    text = """<<<TOPIC_CATEGORY>>>
+booking/enquiry - car hire
+<<<QUESTION_TYPES>>>
+<<<SCRIPT>>>
+# GENDER: Agent=male
+# GENDER: Client=female
+
+Agent: How can I help you today?
+Client: I'd like to book a car for next week.
+<<<QUESTIONS>>>
+1. What does the client want to book?
+<<<ANSWERS>>>
+1. A car
+"""
+    with pytest.raises(ScriptParseError, match="QUESTION_TYPES"):
+        _parse_response(text, part=1)
+
+
+def test_parse_question_types_splits_and_strips():
+    assert _parse_question_types("form completion, note completion") == [
+        "form completion",
+        "note completion",
+    ]
+    assert _parse_question_types("  multiple choice ,matching  ") == [
+        "multiple choice",
+        "matching",
+    ]
+    assert _parse_question_types("") == []
 
 
 def test_validate_cast_size_dialogue_ok():
@@ -198,16 +257,16 @@ def test_validate_question_count_ignores_prose_numbers():
     _validate_question_count(text, part=1)  # should not raise — no false positive triggered
 
 
-# --- topic log --------------------------------------------------------
+# --- topic + question-type log -------------------------------------------
 
 
 def test_recent_topics_and_record_round_trip(tmp_path):
     log_path = tmp_path / "log.json"
     assert _recent_topics(1, log_path) == []
 
-    _record_topic(1, "booking/enquiry - car hire", log_path)
-    _record_topic(1, "booking/enquiry - hotel", log_path)
-    _record_topic(2, "guided tour - museum", log_path)
+    _record_generation(1, "booking/enquiry - car hire", ["form completion"], log_path)
+    _record_generation(1, "booking/enquiry - hotel", ["note completion"], log_path)
+    _record_generation(2, "guided tour - museum", ["multiple choice"], log_path)
 
     assert _recent_topics(1, log_path) == ["booking/enquiry - car hire", "booking/enquiry - hotel"]
     assert _recent_topics(2, log_path) == ["guided tour - museum"]
@@ -217,8 +276,159 @@ def test_recent_topics_and_record_round_trip(tmp_path):
 def test_recent_topics_caps_at_six(tmp_path):
     log_path = tmp_path / "log.json"
     for i in range(10):
-        _record_topic(1, f"topic-{i}", log_path)
+        _record_generation(1, f"topic-{i}", ["form completion"], log_path)
     assert _recent_topics(1, log_path) == [f"topic-{i}" for i in range(4, 10)]
+
+
+def test_recent_topics_skips_entries_with_no_topic(tmp_path):
+    # --quiz records question_types with topic_category=None (the transcript's
+    # topic isn't Gemini's to name) — those entries must not crash or pollute
+    # the topic-avoidance list used by generate_section's own prompt.
+    log_path = tmp_path / "log.json"
+    _record_generation(1, None, ["form completion"], log_path)  # from --quiz
+    _record_generation(1, "booking/enquiry - car hire", ["note completion"], log_path)
+
+    assert _recent_topics(1, log_path) == ["booking/enquiry - car hire"]
+
+
+def test_recent_question_types_round_trip(tmp_path):
+    log_path = tmp_path / "log.json"
+    assert _recent_question_types(1, log_path, limit=5) == []
+
+    _record_generation(1, "topic a", ["form completion"], log_path)
+    _record_generation(1, "topic b", ["form completion", "note completion"], log_path)
+    _record_generation(2, "topic c", ["multiple choice"], log_path)
+
+    assert _recent_question_types(1, log_path, limit=5) == [
+        ["form completion"],
+        ["form completion", "note completion"],
+    ]
+    assert _recent_question_types(2, log_path, limit=5) == [["multiple choice"]]
+    assert _recent_question_types(3, log_path, limit=5) == []
+
+
+def test_recent_question_types_respects_limit(tmp_path):
+    log_path = tmp_path / "log.json"
+    for i in range(10):
+        _record_generation(1, f"topic-{i}", [f"type-{i}"], log_path)
+    assert _recent_question_types(1, log_path, limit=3) == [
+        ["type-7"], ["type-8"], ["type-9"],
+    ]
+
+
+# --- type variety guidance: dominant-type parts (1, 4) ---------------------
+
+
+def test_type_guidance_dominant_part_no_history_is_silent(tmp_path):
+    log_path = tmp_path / "log.json"
+    assert _type_variety_guidance(1, log_path) == ""
+
+
+def test_type_guidance_dominant_part_below_min_history_is_silent(tmp_path):
+    log_path = tmp_path / "log.json"
+    for _ in range(MIN_HISTORY_FOR_TYPE_NUDGE - 1):
+        _record_generation(1, "topic", ["form completion"], log_path)
+    assert _type_variety_guidance(1, log_path) == ""
+
+
+def test_type_guidance_dominant_part_secondary_recently_seen_is_silent(tmp_path):
+    log_path = tmp_path / "log.json"
+    for _ in range(4):
+        _record_generation(1, "topic", ["form completion"], log_path)
+    _record_generation(1, "topic", ["matching"], log_path)  # secondary seen recently
+    assert _type_variety_guidance(1, log_path) == ""
+
+
+def test_type_guidance_dominant_part_nudges_when_secondary_absent(tmp_path):
+    # This is the exact scenario in the task: 5 recent "form completion"
+    # entries for Part 1, zero "matching" — should produce a soft nudge, not
+    # a hard requirement.
+    log_path = tmp_path / "log.json"
+    for _ in range(5):
+        _record_generation(1, "topic", ["form completion"], log_path)
+
+    guidance = _type_variety_guidance(1, log_path)
+
+    assert guidance != ""
+    assert "matching" in guidance
+    assert "form/note completion" in guidance
+    assert "5 Part 1 sections" in guidance
+    # A nudge, not a requirement — "could", not "must"/"always".
+    assert "could work in a touch of" in guidance
+    assert "should still be the primary type" in guidance
+
+
+def test_type_guidance_dominant_part4_uses_correct_secondary(tmp_path):
+    log_path = tmp_path / "log.json"
+    for _ in range(4):
+        _record_generation(4, "topic", ["note/summary completion"], log_path)
+
+    guidance = _type_variety_guidance(4, log_path)
+
+    assert "short-answer" in guidance
+    assert "note/summary completion" in guidance
+
+
+# --- type variety guidance: balanced-type parts (2, 3) ---------------------
+
+
+def test_type_guidance_balanced_part_no_history_is_silent(tmp_path):
+    log_path = tmp_path / "log.json"
+    assert _type_variety_guidance(2, log_path) == ""
+
+
+def test_type_guidance_balanced_part_avoids_recent_combination(tmp_path):
+    log_path = tmp_path / "log.json"
+    _record_generation(2, "topic", ["multiple choice", "matching"], log_path)
+
+    guidance = _type_variety_guidance(2, log_path)
+
+    assert "multiple choice, matching" in guidance
+    assert "Avoid repeating" in guidance
+
+
+def test_type_guidance_balanced_part_respects_lookback(tmp_path):
+    log_path = tmp_path / "log.json"
+    for i in range(5):
+        _record_generation(3, "topic", [f"type-{i}"], log_path)
+
+    guidance = _type_variety_guidance(3, log_path)
+
+    # Only the last BALANCED_TYPE_LOOKBACK entries should be referenced.
+    assert f"type-{4}" in guidance  # most recent
+    assert f"type-{3}" in guidance  # second most recent
+    assert "type-0" not in guidance
+
+
+def test_type_guidance_unknown_part_is_silent(tmp_path):
+    log_path = tmp_path / "log.json"
+    assert _type_variety_guidance(5, log_path) == ""
+
+
+# --- _user_prompt integration ----------------------------------------------
+
+
+def test_user_prompt_part1_five_recent_form_completion_zero_matching(tmp_path):
+    """Exact scenario requested for review: Part 1, 5 recent 'form completion'
+    entries, 0 recent 'matching' — the prompt Gemini would actually receive."""
+    log_path = tmp_path / "log.json"
+    for _ in range(5):
+        _record_generation(1, "some past topic", ["form completion"], log_path)
+
+    prompt = _user_prompt(1, topic_hint=None, recent_topics=[], log_path=log_path)
+
+    assert "could work in a touch of matching" in prompt
+    assert "form/note completion" in prompt
+    assert "should still be the primary type" in prompt
+
+
+def test_user_prompt_includes_type_guidance_for_balanced_part(tmp_path):
+    log_path = tmp_path / "log.json"
+    _record_generation(2, "topic", ["multiple choice"], log_path)
+
+    prompt = _user_prompt(2, topic_hint=None, recent_topics=[], log_path=log_path)
+
+    assert "Avoid repeating the same combination" in prompt
 
 
 # --- generate_section: success, retry, exhaustion -------------------------
@@ -233,10 +443,12 @@ def test_generate_section_success_first_try(tmp_path, monkeypatch):
     result = generate_section(1, log_path=log_path)
 
     assert result.topic_category == "booking/enquiry - car hire"
+    assert result.question_types == ["form completion", "note completion"]
     assert result.script.part == 1
     assert result.script.speakers == ["Agent", "Client"]
     fake_client.models.generate_content.assert_called_once()
     assert _recent_topics(1, log_path) == ["booking/enquiry - car hire"]
+    assert _recent_question_types(1, log_path, limit=5) == [["form completion", "note completion"]]
 
 
 def test_generate_section_retries_then_succeeds(tmp_path, monkeypatch):
@@ -320,7 +532,7 @@ def test_generate_section_wraps_api_errors(tmp_path, monkeypatch):
 
 def test_generate_section_includes_topic_hint_and_recent_topics(tmp_path, monkeypatch):
     log_path = tmp_path / "log.json"
-    _record_topic(1, "booking/enquiry - hotel", log_path)
+    _record_generation(1, "booking/enquiry - hotel", ["form completion"], log_path)
 
     fake_client = MagicMock()
     fake_client.models.generate_content.return_value = _fake_response(VALID_PART1_RESPONSE)
@@ -370,13 +582,17 @@ def test_generate_full_test_single_section(tmp_path, monkeypatch):
 # --- generate_quiz ----------------------------------------------------------
 
 
-VALID_QUIZ_RESPONSE = f"""<<<QUESTIONS>>>
+VALID_QUIZ_RESPONSE = f"""<<<QUESTION_TYPES>>>
+form completion, note completion
+<<<QUESTIONS>>>
 {_ten_questions(1)}
 <<<ANSWERS>>>
 {_ten_answers(1)}
 """
 
-MISSING_QUESTIONS_QUIZ_RESPONSE = """<<<QUESTIONS>>>
+MISSING_QUESTIONS_QUIZ_RESPONSE = """<<<QUESTION_TYPES>>>
+form completion
+<<<QUESTIONS>>>
 1. What does the client want to book?
 2. When does the client want it?
 <<<ANSWERS>>>
@@ -387,30 +603,27 @@ MISSING_QUESTIONS_QUIZ_RESPONSE = """<<<QUESTIONS>>>
 INVALID_QUIZ_RESPONSE = "no markers here at all"
 
 
-def test_quiz_system_prompt_forbids_rewriting_script():
-    assert "do not modify" in QUIZ_SYSTEM_PROMPT.lower()
-    assert "<<<QUESTIONS>>>" in QUIZ_SYSTEM_PROMPT
-    assert "<<<ANSWERS>>>" in QUIZ_SYSTEM_PROMPT
-    assert "<<<SCRIPT>>>" not in QUIZ_SYSTEM_PROMPT
-
-
 def test_parse_quiz_response_valid():
-    questions, answers = _parse_quiz_response(VALID_QUIZ_RESPONSE)
+    question_types, questions, answers = _parse_quiz_response(VALID_QUIZ_RESPONSE)
+    assert question_types == ["form completion", "note completion"]
     assert "1. Question 1?" in questions
     assert "1. Answer 1" in answers
 
 
 def test_parse_quiz_response_missing_blocks_raises():
-    with pytest.raises(ScriptParseError, match="two required blocks"):
+    with pytest.raises(ScriptParseError, match="three required blocks"):
         _parse_quiz_response(INVALID_QUIZ_RESPONSE)
 
 
-def test_generate_quiz_success(monkeypatch):
+def test_generate_quiz_success(tmp_path, monkeypatch):
+    log_path = tmp_path / "log.json"
     fake_client = MagicMock()
     fake_client.models.generate_content.return_value = _fake_response(VALID_QUIZ_RESPONSE)
     monkeypatch.setattr("src.script_generator._get_client", lambda: fake_client)
 
-    questions, answers = generate_quiz(1, "Agent: How can I help?\nClient: I'd like a car.\n")
+    questions, answers = generate_quiz(
+        1, "Agent: How can I help?\nClient: I'd like a car.\n", log_path=log_path
+    )
 
     assert "1. Question 1?" in questions
     assert "1. Answer 1" in answers
@@ -418,6 +631,36 @@ def test_generate_quiz_success(monkeypatch):
     assert call_kwargs["model"] == "gemini-2.5-flash"
     assert "Agent: How can I help?" in call_kwargs["contents"][0]
     assert "1-10" in call_kwargs["contents"][0]
+
+
+def test_generate_quiz_records_question_types_with_no_topic(tmp_path, monkeypatch):
+    # --quiz has no topic of its own to record — only the question types.
+    log_path = tmp_path / "log.json"
+    fake_client = MagicMock()
+    fake_client.models.generate_content.return_value = _fake_response(VALID_QUIZ_RESPONSE)
+    monkeypatch.setattr("src.script_generator._get_client", lambda: fake_client)
+
+    generate_quiz(1, "Agent: hi\nClient: hello\n", log_path=log_path)
+
+    assert _recent_question_types(1, log_path, limit=5) == [
+        ["form completion", "note completion"]
+    ]
+    assert _recent_topics(1, log_path) == []  # topic_category was None, correctly excluded
+
+
+def test_generate_quiz_prompt_includes_type_guidance(tmp_path, monkeypatch):
+    log_path = tmp_path / "log.json"
+    for _ in range(5):
+        _record_generation(1, None, ["form completion"], log_path)
+
+    fake_client = MagicMock()
+    fake_client.models.generate_content.return_value = _fake_response(VALID_QUIZ_RESPONSE)
+    monkeypatch.setattr("src.script_generator._get_client", lambda: fake_client)
+
+    generate_quiz(1, "Agent: hi\nClient: hello\n", log_path=log_path)
+
+    call_kwargs = fake_client.models.generate_content.call_args.kwargs
+    assert "could work in a touch of matching" in call_kwargs["contents"][0]
 
 
 def test_generate_quiz_retries_then_succeeds(monkeypatch):
