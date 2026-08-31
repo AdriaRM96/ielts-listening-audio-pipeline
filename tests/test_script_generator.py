@@ -4,13 +4,16 @@ import pytest
 
 from src.script_generator import (
     MAX_ATTEMPTS,
+    QUIZ_SYSTEM_PROMPT,
     SYSTEM_PROMPT,
     ScriptGenerationError,
+    _parse_quiz_response,
     _parse_response,
     _recent_topics,
     _record_topic,
     _validate_cast_size,
     generate_full_test,
+    generate_quiz,
     generate_section,
 )
 from src.parser import ScriptParseError, parse_script
@@ -267,3 +270,81 @@ def test_generate_full_test_single_section(tmp_path, monkeypatch):
 
     assert set(result.keys()) == {1}
     fake_client.models.generate_content.assert_called_once()
+
+
+# --- generate_quiz ----------------------------------------------------------
+
+
+VALID_QUIZ_RESPONSE = """<<<QUESTIONS>>>
+1. What does the client want to book?
+<<<ANSWERS>>>
+1. A car
+"""
+
+INVALID_QUIZ_RESPONSE = "no markers here at all"
+
+
+def test_quiz_system_prompt_forbids_rewriting_script():
+    assert "do not modify" in QUIZ_SYSTEM_PROMPT.lower()
+    assert "<<<QUESTIONS>>>" in QUIZ_SYSTEM_PROMPT
+    assert "<<<ANSWERS>>>" in QUIZ_SYSTEM_PROMPT
+    assert "<<<SCRIPT>>>" not in QUIZ_SYSTEM_PROMPT
+
+
+def test_parse_quiz_response_valid():
+    questions, answers = _parse_quiz_response(VALID_QUIZ_RESPONSE)
+    assert "What does the client want to book" in questions
+    assert "A car" in answers
+
+
+def test_parse_quiz_response_missing_blocks_raises():
+    with pytest.raises(ScriptParseError, match="two required blocks"):
+        _parse_quiz_response(INVALID_QUIZ_RESPONSE)
+
+
+def test_generate_quiz_success(monkeypatch):
+    fake_client = MagicMock()
+    fake_client.models.generate_content.return_value = _fake_response(VALID_QUIZ_RESPONSE)
+    monkeypatch.setattr("src.script_generator._get_client", lambda: fake_client)
+
+    questions, answers = generate_quiz(1, "Agent: How can I help?\nClient: I'd like a car.\n")
+
+    assert "What does the client want to book" in questions
+    assert "A car" in answers
+    call_kwargs = fake_client.models.generate_content.call_args.kwargs
+    assert call_kwargs["model"] == "gemini-2.5-flash"
+    assert "Agent: How can I help?" in call_kwargs["contents"][0]
+
+
+def test_generate_quiz_retries_then_succeeds(monkeypatch):
+    fake_client = MagicMock()
+    fake_client.models.generate_content.side_effect = [
+        _fake_response(INVALID_QUIZ_RESPONSE),
+        _fake_response(VALID_QUIZ_RESPONSE),
+    ]
+    monkeypatch.setattr("src.script_generator._get_client", lambda: fake_client)
+
+    questions, answers = generate_quiz(1, "Agent: hi\nClient: hello\n")
+
+    assert fake_client.models.generate_content.call_count == 2
+    assert "What does the client want to book" in questions
+
+
+def test_generate_quiz_exhausts_retries_raises(monkeypatch):
+    fake_client = MagicMock()
+    fake_client.models.generate_content.return_value = _fake_response(INVALID_QUIZ_RESPONSE)
+    monkeypatch.setattr("src.script_generator._get_client", lambda: fake_client)
+
+    with pytest.raises(ScriptGenerationError, match=f"after {MAX_ATTEMPTS} attempts"):
+        generate_quiz(1, "Agent: hi\nClient: hello\n")
+
+    assert fake_client.models.generate_content.call_count == MAX_ATTEMPTS
+
+
+def test_generate_quiz_wraps_api_errors(monkeypatch):
+    fake_client = MagicMock()
+    fake_client.models.generate_content.side_effect = RuntimeError("quota exceeded")
+    monkeypatch.setattr("src.script_generator._get_client", lambda: fake_client)
+
+    with pytest.raises(ScriptGenerationError, match="quota exceeded"):
+        generate_quiz(1, "Agent: hi\nClient: hello\n")

@@ -175,6 +175,16 @@ python run.py --generate --section 3
 
 Each generation call prints how many tokens it used, so you can see at a glance how little this costs against your GCP credit — a full 4-part test is typically a few thousand tokens total, a small fraction of a cent.
 
+### Optional: generate a quiz for a transcript you already have
+
+`--generate` transcripts already come with a matching quiz automatically. If you're bringing your own transcript instead (hand-written, or from the `ielts-listening-generator` skill), add `--quiz` to also get a `questions_and_answers.md` written by Gemini for it — based strictly on what's actually in your transcript, not invented:
+
+```bash
+python run.py --quiz
+```
+
+This also requires the [Step 3.7](#37-optional-enable-automatic-script-generation-with-gemini) setup. If quiz generation fails for a part, you still get its audio — the run doesn't fail, it just skips that part's quiz with a warning.
+
 ---
 
 ## How much does this cost?

@@ -63,13 +63,15 @@ def test_run_build_skips_missing_and_malformed_parts(tmp_path, monkeypatch):
         lambda client, text, voice_name, language_code=None: b"fake-mp3-bytes",
     )
 
-    test_dir = run_build(input_dir, output_dir)
+    test_dir, built_texts = run_build(input_dir, output_dir)
 
     assert test_dir == output_dir / "test1"
     assert (test_dir / "part2.mp3").read_bytes() == b"fake-mp3-bytes"
     assert not (test_dir / "part1.mp3").exists()
     assert not (test_dir / "part3.mp3").exists()
     assert not (test_dir / "part4.mp3").exists()
+    assert set(built_texts.keys()) == {2}
+    assert built_texts[2] == "Narrator: A short monologue about museums.\n"
 
 
 def test_run_build_copies_transcript_alongside_audio(tmp_path, monkeypatch):
@@ -90,7 +92,7 @@ def test_run_build_copies_transcript_alongside_audio(tmp_path, monkeypatch):
         lambda client, text, voice_name, language_code=None: b"fake-mp3-bytes",
     )
 
-    test_dir = run_build(input_dir, output_dir)
+    test_dir, _ = run_build(input_dir, output_dir)
 
     # A part that produced audio gets its source transcript copied alongside it...
     assert (test_dir / "part2.txt").read_text() == "Narrator: A short monologue about museums.\n"
@@ -255,3 +257,114 @@ def test_parse_args_section_defaults_to_none():
 
     args = parse_args(["my_transcripts", "--generate"])
     assert args.section is None
+
+
+def test_parse_args_quiz_flag():
+    from src.build_test import parse_args
+
+    args = parse_args(["my_transcripts", "--quiz"])
+    assert args.quiz is True
+    assert parse_args(["my_transcripts"]).quiz is False
+
+
+def test_main_quiz_generates_qa_for_hand_written_transcript(tmp_path, monkeypatch):
+    input_dir = tmp_path / "transcripts"
+    input_dir.mkdir()
+    output_dir = tmp_path / "output"
+
+    (input_dir / "part2.txt").write_text("Narrator: A short monologue about museums.\n")
+
+    monkeypatch.setattr("src.build_test.get_client", lambda: MagicMock())
+    monkeypatch.setattr(
+        "src.build_test.assign_narrator_voice", lambda gender, part: ("en-GB-Neural2-A", "en-GB")
+    )
+    monkeypatch.setattr(
+        "src.build_test.synthesize",
+        lambda client, text, voice_name, language_code=None: b"fake-mp3-bytes",
+    )
+    quiz_mock = MagicMock(return_value=("Q1: What is the talk about?", "1. Museums"))
+    monkeypatch.setattr("src.build_test.generate_quiz", quiz_mock)
+
+    main([str(input_dir), "--quiz", "--output-dir", str(output_dir)])
+
+    quiz_mock.assert_called_once_with(2, "Narrator: A short monologue about museums.\n")
+    qa_text = (output_dir / "test1" / "questions_and_answers.md").read_text()
+    assert "# Part 2" in qa_text
+    assert "What is the talk about?" in qa_text
+    assert "1. Museums" in qa_text
+
+
+def test_main_quiz_skipped_for_parts_already_generated_this_run(tmp_path, monkeypatch):
+    input_dir = tmp_path / "transcripts"
+    output_dir = tmp_path / "output"
+
+    fake_sections = {1: _fake_generated_section(1, "Narrator: Hi.\n", "car hire")}
+    monkeypatch.setattr("src.build_test.generate_full_test", MagicMock(return_value=fake_sections))
+    monkeypatch.setattr("src.build_test.get_client", lambda: MagicMock())
+    monkeypatch.setattr(
+        "src.build_test.assign_narrator_voice", lambda gender, part: ("en-GB-Neural2-A", "en-GB")
+    )
+    monkeypatch.setattr(
+        "src.build_test.synthesize",
+        lambda client, text, voice_name, language_code=None: b"fake-mp3-bytes",
+    )
+    quiz_mock = MagicMock()
+    monkeypatch.setattr("src.build_test.generate_quiz", quiz_mock)
+
+    main([str(input_dir), "--generate", "--quiz", "--output-dir", str(output_dir)])
+
+    # Part 1 already got a quiz as part of --generate's own call — --quiz must
+    # not spend a second Gemini call regenerating it.
+    quiz_mock.assert_not_called()
+    qa_text = (output_dir / "test1" / "questions_and_answers.md").read_text()
+    assert f"Q for part 1" in qa_text
+
+
+def test_main_quiz_failure_warns_and_continues(tmp_path, monkeypatch, capsys):
+    input_dir = tmp_path / "transcripts"
+    input_dir.mkdir()
+    output_dir = tmp_path / "output"
+
+    (input_dir / "part2.txt").write_text("Narrator: A short monologue.\n")
+
+    monkeypatch.setattr("src.build_test.get_client", lambda: MagicMock())
+    monkeypatch.setattr(
+        "src.build_test.assign_narrator_voice", lambda gender, part: ("en-GB-Neural2-A", "en-GB")
+    )
+    monkeypatch.setattr(
+        "src.build_test.synthesize",
+        lambda client, text, voice_name, language_code=None: b"fake-mp3-bytes",
+    )
+    monkeypatch.setattr(
+        "src.build_test.generate_quiz",
+        MagicMock(side_effect=ScriptGenerationError("Gemini request failed")),
+    )
+
+    # Must not raise — audio already succeeded, a quiz failure shouldn't lose it.
+    main([str(input_dir), "--quiz", "--output-dir", str(output_dir)])
+
+    assert (output_dir / "test1" / "part2.mp3").exists()
+    assert not (output_dir / "test1" / "questions_and_answers.md").exists()
+    captured = capsys.readouterr()
+    assert "could not generate a quiz for part 2" in captured.err
+
+
+def test_main_without_quiz_flag_no_qa_file_for_hand_written(tmp_path, monkeypatch):
+    input_dir = tmp_path / "transcripts"
+    input_dir.mkdir()
+    output_dir = tmp_path / "output"
+
+    (input_dir / "part2.txt").write_text("Narrator: A short monologue.\n")
+
+    monkeypatch.setattr("src.build_test.get_client", lambda: MagicMock())
+    monkeypatch.setattr(
+        "src.build_test.assign_narrator_voice", lambda gender, part: ("en-GB-Neural2-A", "en-GB")
+    )
+    monkeypatch.setattr(
+        "src.build_test.synthesize",
+        lambda client, text, voice_name, language_code=None: b"fake-mp3-bytes",
+    )
+
+    main([str(input_dir), "--output-dir", str(output_dir)])
+
+    assert not (output_dir / "test1" / "questions_and_answers.md").exists()

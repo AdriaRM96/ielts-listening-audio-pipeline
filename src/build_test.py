@@ -18,7 +18,7 @@ import sys
 from pathlib import Path
 
 from .parser import ParsedScript, ScriptParseError, parse_script_file
-from .script_generator import ScriptGenerationError, generate_full_test
+from .script_generator import ScriptGenerationError, generate_full_test, generate_quiz
 from .tts_client import TTSClientError, get_client, synthesize
 from .voices import assign_dialogue_voices, assign_narrator_voice
 
@@ -98,7 +98,7 @@ def build_part_audio(client, script: ParsedScript, out_path: Path) -> None:
         out_path.write_bytes(audio_bytes)
 
 
-def run_build(input_dir: Path, output_root: Path) -> Path:
+def run_build(input_dir: Path, output_root: Path) -> tuple[Path, dict[int, str]]:
     """Build all found part files from input_dir into a new numbered test folder.
 
     Missing part files are skipped with a warning rather than failing the
@@ -107,6 +107,11 @@ def run_build(input_dir: Path, output_root: Path) -> Path:
     built part's source .txt is copied alongside its .mp3 in the output
     folder, so the transcript stays with the audio it produced even after
     input_dir's contents are later overwritten by a fresh --generate run.
+
+    Returns (test_dir, built_texts), where built_texts maps each
+    successfully-built part number to its raw transcript text — used by
+    --quiz to generate a matching question set for parts that weren't
+    freshly written by --generate this run.
     """
     if not input_dir.is_dir():
         raise TTSClientError(f"Input folder not found: {input_dir}")
@@ -116,7 +121,7 @@ def run_build(input_dir: Path, output_root: Path) -> Path:
     test_dir.mkdir(parents=True, exist_ok=False)
 
     client = get_client()
-    built_any = False
+    built_texts: dict[int, str] = {}
 
     for filename in PART_FILENAMES:
         file_path = input_dir / filename
@@ -135,16 +140,16 @@ def run_build(input_dir: Path, output_root: Path) -> Path:
         build_part_audio(client, script, out_path)
         shutil.copy2(file_path, test_dir / filename)
         print(f"  [{filename}] -> {out_path}")
-        built_any = True
+        built_texts[script.part] = file_path.read_text(encoding="utf-8")
 
-    if not built_any:
+    if not built_texts:
         test_dir.rmdir()
         raise TTSClientError(
             f"No usable part files found in {input_dir}. "
             "Expected part1.txt, part2.txt, part3.txt, and/or part4.txt."
         )
 
-    return test_dir
+    return test_dir, built_texts
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -190,6 +195,15 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             "Ignored without --generate."
         ),
     )
+    parser.add_argument(
+        "--quiz",
+        action="store_true",
+        help=(
+            "Generate a matching questions_and_answers.md with Gemini for every part built "
+            "this run, including transcripts you supplied yourself (not just --generate'd "
+            "ones, which already get a quiz as part of that same call)."
+        ),
+    )
     return parser.parse_args(argv)
 
 
@@ -197,7 +211,9 @@ def main(argv: list[str] | None = None) -> None:
     args = parse_args(argv)
     input_dir = Path(args.input_dir)
 
-    generated: dict[int, object] = {}
+    # part -> (topic_category | None, questions, answers)
+    qa_entries: dict[int, tuple[str | None, str, str]] = {}
+
     if args.generate:
         print("Generating a new test with Gemini (Vertex AI)...")
         parts = [args.section] if args.section else None
@@ -211,22 +227,35 @@ def main(argv: list[str] | None = None) -> None:
             path = input_dir / f"part{part_num}.txt"
             path.write_text(section.script_text, encoding="utf-8")
             print(f"  wrote {path}")
+            qa_entries[part_num] = (section.topic_category, section.questions, section.answers)
 
     try:
-        test_dir = run_build(input_dir, Path(args.output_dir))
+        test_dir, built_texts = run_build(input_dir, Path(args.output_dir))
     except TTSClientError as exc:
         sys.exit(f"ERROR: {exc}")
 
-    if generated:
+    if args.quiz:
+        for part_num, script_text in built_texts.items():
+            if part_num in qa_entries:
+                continue  # already has a quiz from --generate this run
+            try:
+                questions, answers = generate_quiz(part_num, script_text)
+            except ScriptGenerationError as exc:
+                print(f"  WARNING: could not generate a quiz for part {part_num}: {exc}", file=sys.stderr)
+                continue
+            qa_entries[part_num] = (None, questions, answers)
+
+    if qa_entries:
         qa_path = test_dir / "questions_and_answers.md"
         qa_lines = []
-        for part_num in sorted(generated):
-            section = generated[part_num]
-            qa_lines.append(f"# Part {part_num} — {section.topic_category}\n")
+        for part_num in sorted(qa_entries):
+            topic, questions, answers = qa_entries[part_num]
+            heading = f"# Part {part_num} — {topic}" if topic else f"# Part {part_num}"
+            qa_lines.append(heading + "\n")
             qa_lines.append("## Questions\n")
-            qa_lines.append(section.questions + "\n")
+            qa_lines.append(questions + "\n")
             qa_lines.append("## Answer key\n")
-            qa_lines.append(section.answers + "\n")
+            qa_lines.append(answers + "\n")
         qa_path.write_text("\n".join(qa_lines), encoding="utf-8")
         print(f"  wrote {qa_path}")
 

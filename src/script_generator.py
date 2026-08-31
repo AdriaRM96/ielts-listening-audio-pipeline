@@ -107,6 +107,24 @@ The matching question set for this section (following the question types and chr
 The answer key for the questions above.
 """
 
+QUIZ_SYSTEM_PROMPT = """You are an expert IELTS Listening test writer. You will be given the transcript for one section of an IELTS Listening test (already written — do not modify, rewrite, or comment on it). Your only job is to write the matching question set and answer key for it.
+
+## Rules
+
+- Question order must follow audio chronology, not question-type grouping. Trace the transcript top to bottom and number questions in the order their answers are spoken, even if that interleaves or reorders question types.
+- Include word-limit instructions where relevant (e.g. "Write NO MORE THAN TWO WORDS").
+- Base every question strictly on information actually present in the transcript — never invent details not in the text.
+
+## Output format
+
+Return exactly these two blocks, with no commentary before, after, or between them:
+
+<<<QUESTIONS>>>
+The matching question set for this section, following the question types and chronology rule above.
+<<<ANSWERS>>>
+The answer key for the questions above.
+"""
+
 
 class ScriptGenerationError(Exception):
     """Raised when Gemini generation fails, or its output can't be validated after retries."""
@@ -193,6 +211,11 @@ _BLOCK_RE = re.compile(
     re.DOTALL,
 )
 
+_QUIZ_BLOCK_RE = re.compile(
+    r"<<<QUESTIONS>>>\s*\n(?P<questions>.*?)\n<<<ANSWERS>>>\s*\n(?P<answers>.*)",
+    re.DOTALL,
+)
+
 _CAST_SIZE_RULES: dict[int, tuple[int, int]] = {1: (2, 2), 2: (1, 1), 3: (2, 4), 4: (1, 1)}
 
 
@@ -215,6 +238,24 @@ def _parse_response(text: str, part: int) -> tuple[str, str, str, str]:
         raise ScriptParseError("The <<<ANSWERS>>> block was empty.")
 
     return topic, script_text, questions, answers
+
+
+def _parse_quiz_response(text: str) -> tuple[str, str]:
+    """Split a raw Gemini quiz-only response into (questions, answers)."""
+    m = _QUIZ_BLOCK_RE.search(text)
+    if not m:
+        raise ScriptParseError(
+            "Response did not contain the two required blocks (<<<QUESTIONS>>>, <<<ANSWERS>>>)."
+        )
+    questions = m.group("questions").strip()
+    answers = m.group("answers").strip()
+
+    if not questions:
+        raise ScriptParseError("The <<<QUESTIONS>>> block was empty.")
+    if not answers:
+        raise ScriptParseError("The <<<ANSWERS>>> block was empty.")
+
+    return questions, answers
 
 
 def _validate_cast_size(script: ParsedScript, part: int) -> None:
@@ -325,3 +366,60 @@ def generate_full_test(
     """Generate one or more sections. Defaults to all 4 parts."""
     parts = parts or [1, 2, 3, 4]
     return {part: generate_section(part, topic_hint, log_path) for part in parts}
+
+
+def generate_quiz(part: int, script_text: str) -> tuple[str, str]:
+    """Generate a matching question set + answer key for an already-written script.
+
+    Used for --quiz on a hand-written or previously-generated transcript,
+    where the dialogue itself is fixed and only needs a matching quiz.
+    """
+    from google.genai import types
+
+    client = _get_client()
+    contents: list = [
+        f"{SECTION_SPECS[part]}\n\nHere is the transcript for this section:\n\n{script_text}"
+    ]
+    last_error: Exception | None = None
+
+    for attempt in range(1, MAX_ATTEMPTS + 1):
+        try:
+            response = client.models.generate_content(
+                model=MODEL_ID,
+                contents=contents,
+                config=types.GenerateContentConfig(
+                    system_instruction=QUIZ_SYSTEM_PROMPT,
+                    thinking_config=types.ThinkingConfig(thinking_budget=0),
+                    max_output_tokens=4096,
+                ),
+            )
+        except Exception as exc:  # noqa: BLE001 - surface any SDK/network error with context
+            raise ScriptGenerationError(f"Gemini request failed for Part {part} quiz: {exc}") from exc
+
+        usage = response.usage_metadata
+        print(
+            f"  [Gemini] Part {part} quiz attempt {attempt}: "
+            f"{usage.prompt_token_count} input + {usage.candidates_token_count} output tokens",
+            file=sys.stderr,
+        )
+
+        response_text = response.text or ""
+
+        try:
+            return _parse_quiz_response(response_text)
+        except ScriptParseError as exc:
+            last_error = exc
+            print(f"  [Gemini] Part {part} quiz attempt {attempt} failed validation: {exc}", file=sys.stderr)
+            if attempt == MAX_ATTEMPTS:
+                break
+            contents.append(response_text)
+            contents.append(
+                f"Your last response didn't match the required format: {exc}\n"
+                "Fix this and resend the complete response — both blocks."
+            )
+            continue
+
+    raise ScriptGenerationError(
+        f"Part {part} quiz: Gemini's output still didn't validate after {MAX_ATTEMPTS} attempts. "
+        f"Last error: {last_error}"
+    )
