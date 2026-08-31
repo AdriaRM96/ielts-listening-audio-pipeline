@@ -6,7 +6,7 @@ Generates complete IELTS Listening practice tests — transcript, matching quest
 
 ## Listen to a real example
 
-A complete 4-part test generated end-to-end by this tool — click any `.mp3` to play it in your browser, no setup or cloning needed. [Questions and answer key for all four parts](examples/sample-test/questions_and_answers.md).
+A complete 4-part test generated end-to-end by this tool — download any `.mp3` below to listen (GitHub serves raw files as downloads, not inline playback), no setup or cloning needed. [Questions and answer key for all four parts](examples/sample-test/questions_and_answers.md).
 
 | Part | Type | Audio | Transcript |
 |---|---|---|---|
