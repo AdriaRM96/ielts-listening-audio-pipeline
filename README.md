@@ -143,7 +143,7 @@ That's it. The tool will:
 - Read each transcript file it finds (missing files are skipped with a warning, not an error)
 - Pick a distinct, gender-matched voice for each speaker (British for Parts 1-2; British, Australian, Indian, or American for Parts 3-4)
 - Generate the audio for each part
-- Save everything into a new, automatically numbered folder: `output/test1/`, then `output/test2/` next time, and so on — so you never overwrite a previous practice test
+- Save everything into a new, automatically numbered folder: `output/test1/`, then `output/test2/` next time, and so on — so you never overwrite a previous practice test. Each part's transcript is copied in alongside its audio, so `output/test1/` is a complete, self-contained bundle (`partN.txt` + `partN.mp3`, plus `questions_and_answers.md` if it was auto-generated) — `transcripts/` itself stays as your working input folder and gets overwritten on the next run.
 
 You'll see progress printed in the terminal as each part is generated.
 
@@ -215,8 +215,8 @@ If you also use `--generate`, Gemini 2.5 Flash on Vertex AI is priced per token 
 ├── tests/                 # automated tests (pytest) — no GCP account needed
 ├── notebooks/
 │   └── demo.ipynb         # walkthrough: parsing → voice assignment → synthesis, with playable audio
-├── transcripts/           # put your part1.txt-part4.txt files here (or let --generate write them)
-├── output/                # generated audio + questions_and_answers.md appears here (test1/, test2/, ...)
+├── transcripts/           # your working input — part1.txt-part4.txt (or let --generate write them)
+├── output/                # each testN/ bundles that run's partN.mp3 + partN.txt (+ questions_and_answers.md if generated)
 ├── requirements.txt
 └── .env.example
 ```

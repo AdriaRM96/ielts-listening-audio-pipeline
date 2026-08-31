@@ -3,7 +3,10 @@
 Reads part1.txt-part4.txt from an input folder, synthesizes each with Google
 Cloud Text-to-Speech, concatenates dialogue turns with a short pause between
 speakers, and writes the result into a fresh, auto-numbered folder under the
-output directory (output/test1/, output/test2/, ...).
+output directory (output/test1/, output/test2/, ...) — audio, a copy of the
+source transcript, and (if generated) the matching questions and answer key
+all land in that same folder, so each testN/ is a complete, self-contained
+bundle.
 """
 from __future__ import annotations
 
@@ -100,7 +103,10 @@ def run_build(input_dir: Path, output_root: Path) -> Path:
 
     Missing part files are skipped with a warning rather than failing the
     whole run; a malformed part file is also skipped with a warning so one
-    bad transcript doesn't block the rest of the test.
+    bad transcript doesn't block the rest of the test. Each successfully
+    built part's source .txt is copied alongside its .mp3 in the output
+    folder, so the transcript stays with the audio it produced even after
+    input_dir's contents are later overwritten by a fresh --generate run.
     """
     if not input_dir.is_dir():
         raise TTSClientError(f"Input folder not found: {input_dir}")
@@ -127,6 +133,7 @@ def run_build(input_dir: Path, output_root: Path) -> Path:
         out_path = test_dir / filename.replace(".txt", ".mp3")
         print(f"  [{filename}] synthesizing ({'dialogue' if script.is_dialogue else 'monologue'})...")
         build_part_audio(client, script, out_path)
+        shutil.copy2(file_path, test_dir / filename)
         print(f"  [{filename}] -> {out_path}")
         built_any = True
 

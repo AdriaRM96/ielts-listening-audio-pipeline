@@ -72,6 +72,36 @@ def test_run_build_skips_missing_and_malformed_parts(tmp_path, monkeypatch):
     assert not (test_dir / "part4.mp3").exists()
 
 
+def test_run_build_copies_transcript_alongside_audio(tmp_path, monkeypatch):
+    input_dir = tmp_path / "transcripts"
+    input_dir.mkdir()
+    output_dir = tmp_path / "output"
+
+    (input_dir / "part2.txt").write_text("Narrator: A short monologue about museums.\n")
+    (input_dir / "part3.txt").write_text("this is not valid speaker format at all\n")
+
+    monkeypatch.setattr("src.build_test.get_client", lambda: MagicMock())
+    monkeypatch.setattr(
+        "src.build_test.assign_narrator_voice",
+        lambda gender, part: ("en-GB-Neural2-A", "en-GB"),
+    )
+    monkeypatch.setattr(
+        "src.build_test.synthesize",
+        lambda client, text, voice_name, language_code=None: b"fake-mp3-bytes",
+    )
+
+    test_dir = run_build(input_dir, output_dir)
+
+    # A part that produced audio gets its source transcript copied alongside it...
+    assert (test_dir / "part2.txt").read_text() == "Narrator: A short monologue about museums.\n"
+    # ...but a part that was skipped for failing validation does not, since no
+    # audio was produced for it either.
+    assert not (test_dir / "part3.txt").exists()
+    # The original file in input_dir is untouched (copied, not moved) so a
+    # subsequent run can still read it.
+    assert (input_dir / "part2.txt").exists()
+
+
 def test_run_build_raises_when_nothing_usable(tmp_path, monkeypatch):
     input_dir = tmp_path / "transcripts"
     input_dir.mkdir()
