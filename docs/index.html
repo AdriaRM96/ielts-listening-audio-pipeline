@@ -81,13 +81,47 @@
     width: 100%;
     margin-bottom: 12px;
   }
-  .links a {
-    color: var(--accent);
-    text-decoration: none;
-    margin-right: 18px;
-    font-size: 0.9rem;
+  details {
+    margin-top: 10px;
+    border: 1px solid var(--grid-line);
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.15);
   }
-  .links a:hover { text-decoration: underline; }
+  details + details { margin-top: 8px; }
+  summary {
+    cursor: pointer;
+    padding: 10px 14px;
+    font-size: 0.9rem;
+    color: var(--accent);
+    user-select: none;
+  }
+  summary:hover { text-decoration: underline; }
+  details[open] summary { border-bottom: 1px solid var(--grid-line); }
+  details > pre,
+  details > .qa-content {
+    padding: 14px;
+    margin: 0;
+  }
+  details pre {
+    overflow-x: auto;
+    white-space: pre-wrap;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.85rem;
+    line-height: 1.5;
+  }
+  .qa-content { font-size: 0.9rem; overflow-x: auto; }
+  .qa-content table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 10px 0;
+  }
+  .qa-content th, .qa-content td {
+    border: 1px solid var(--grid-line);
+    padding: 6px 10px;
+    text-align: left;
+  }
+  .qa-content h1, .qa-content h2 { font-size: 1rem; margin: 14px 0 6px; }
+  .qa-content ol, .qa-content ul { padding-left: 22px; }
   footer {
     max-width: 900px;
     margin: 0 auto;
@@ -119,40 +153,397 @@
     <h2>Part 1</h2>
     <div class="meta">Gym membership enquiry — dialogue</div>
     <audio controls src="sample-test/part1.mp3"></audio>
-    <div class="links">
-      <a href="sample-test/part1.txt">Transcript</a>
-      <a href="sample-test/questions_and_answers.md">Questions &amp; answer key</a>
-    </div>
+    <!-- BEGIN PART 1 DETAILS -->
+    <details>
+<summary>Transcript</summary>
+<pre># GENDER: Sarah=female
+# GENDER: Mark=male
+
+Sarah: Good morning, City Fitness. How can I help you?
+Mark: Hello. Yes, I&#x27;m calling to enquire about your gym memberships. I&#x27;m new to the area and looking for a local gym.
+Sarah: Of course. We have a few options depending on what you&#x27;re looking for. Can I get your name first, please?
+Mark: Certainly. It&#x27;s Mark Johnson. That&#x27;s J-O-H-N-S-O-N.
+Sarah: Thank you, Mark. And what&#x27;s your current postcode, if you don&#x27;t mind me asking? We&#x27;re running a special offer for residents in certain areas.
+Mark: Oh, interesting. It&#x27;s NE2 6TY.
+Sarah: NE2 6TY. Got it. Okay, so based on your postcode, you would indeed qualify for our introductory offer. It&#x27;s a 20% discount on our standard annual membership for the first year.
+Mark: That sounds good. What does the standard annual membership include?
+Sarah: The standard annual membership gives you unlimited access to all gym facilities, including the swimming pool and sauna. You also get a complimentary fitness assessment with one of our trainers, and access to all group classes.
+Mark: All group classes? Even things like spinning and yoga?
+Sarah: Yes, that&#x27;s right. All of them. And we have over 50 classes a week.
+Mark: Wow, that&#x27;s a lot. And what about the cost?
+Sarah: Okay, so the full price for the annual membership is usually five hundred pounds. With your postcode discount, that brings it down to four hundred pounds for the first year. Or, if you prefer to pay monthly, it&#x27;s forty pounds a month, but that option doesn&#x27;t include the discount, so it works out a little more expensive overall.
+Mark: Hmm, four hundred pounds for the year sounds like a good deal. Is there an enrolment fee?
+Sarah: No, there isn&#x27;t an enrolment fee for the annual membership. There&#x27;s just a one-off administration charge of twenty-five pounds when you sign up.
+Mark: Twenty-five pounds. Okay, that&#x27;s reasonable. And are there any off-peak options? I mostly plan to come in the mornings or late evenings.
+Sarah: We do have an off-peak membership, yes. It&#x27;s specifically for those who use the gym between 9 AM and 4 PM on weekdays, or after 7 PM. Also, all day on weekends.
+Mark: And how much is that one?
+Sarah: The off-peak annual membership is three hundred and fifty pounds. It doesn&#x27;t include the postcode discount, but it&#x27;s still our most economical option if your schedule fits.
+Mark: Right, three fifty. Is that including the admin fee?
+Sarah: No, the twenty-five pound administration charge applies to all memberships. So that would be three hundred and seventy-five pounds in total for the off-peak.
+Mark: Got it. And what about if I just wanted access to the pool, not the gym? I&#x27;m a keen swimmer.
+Sarah: We used to offer a &#x27;swim-only&#x27; membership, actually, but we discontinued it last year due to low demand. Now, all memberships include access to all facilities.
+Mark: Ah, I see. So the annual membership for four hundred pounds, or the off-peak for three seventy-five. I think I&#x27;m leaning towards the off-peak option. My work schedule is pretty flexible.
+Sarah: Excellent. If you&#x27;d like to sign up, I can process that for you over the phone, or you can come in and have a look around first. Our address is 14 Riverdale Road. That&#x27;s R-I-V-E-R-D-A-L-E.
+Mark: Riverdale Road. Okay. I might pop in tomorrow morning. What time do you open?
+Sarah: We open at 6 AM during the week and 8 AM on weekends. The best time to visit would probably be around 10 AM, as it&#x27;s usually quieter then. Just ask for Eleanor at reception. She can give you a tour.
+Mark: Eleanor, got it. Thanks for all your help, Sarah.
+Sarah: You&#x27;re very welcome, Mark. Have a good day.</pre>
+</details>
+    <details>
+<summary>Questions &amp; answer key</summary>
+<div class="qa-content">
+<h2>Questions</h2>
+<p>Questions 1-5
+Complete the form below.
+Write ONE WORD AND/OR A NUMBER for each answer.</p>
+<p><strong>CITY FITNESS GYM MEMBERSHIP ENQUIRY</strong></p>
+<p>Customer Name: Mark Johnson
+Postcode: 1. __________
+Membership Type: Annual
+Discount: 20% (postcode offer)
+Annual Cost: £ 2. __________ (first year)
+Additional charge: £ 3. __________ (administration)</p>
+<p>Off-peak annual membership: £ 4. __________</p>
+<p>Swimming-only membership: 5. __________ (status)</p>
+<p>Questions 6-10
+Complete the notes below.
+Write ONE WORD AND/OR A NUMBER for each answer.</p>
+<p><strong>Notes for Visiting City Fitness</strong></p>
+<p>Address: 14 6. __________ Road
+Best time to visit: around 7. __________ AM (weekdays)
+Ask for: 8. __________
+Opening hours:
+•   Weekdays: 9. __________ AM
+•   Weekends: 8 AM</p>
+<p>Number of group classes per week: over 10. __________</p>
+<h2>Answer key</h2>
+<ol>
+<li>NE2 6TY</li>
+<li>400</li>
+<li>25</li>
+<li>350</li>
+<li>Discontinued</li>
+<li>Riverdale</li>
+<li>10</li>
+<li>Eleanor</li>
+<li>6</li>
+<li>50</li>
+</ol>
+</div>
+</details>
+    <!-- END PART 1 DETAILS -->
   </div>
 
   <div class="part-card">
     <h2>Part 2</h2>
     <div class="meta">New library facilities announcement — monologue</div>
     <audio controls src="sample-test/part2.mp3"></audio>
-    <div class="links">
-      <a href="sample-test/part2.txt">Transcript</a>
-      <a href="sample-test/questions_and_answers.md">Questions &amp; answer key</a>
-    </div>
+    <!-- BEGIN PART 2 DETAILS -->
+    <details>
+<summary>Transcript</summary>
+<pre># GENDER: Sarah=female
+
+Sarah: Good morning, everyone, and welcome to the newly renovated Central Library! It&#x27;s fantastic to see so many of you here today for our grand reopening. My name is Sarah Jenkins, and I&#x27;m the Head Librarian here. I&#x27;m just going to take a few minutes of your time to outline some of the exciting new features and changes you&#x27;ll find, as well as a quick rundown of our opening hours and a special event coming up.
+
+Sarah: So, let&#x27;s start with what’s new. We’ve really tried to modernise the space to better serve our community. One of the most significant changes is the complete overhaul of our computer suite. It’s now located on the first floor – that’s one level up from here – in what used to be the old periodicals section. We&#x27;ve upgraded all the hardware and software, and we now offer free printing for up to ten pages per day for all library members. If you need to print more, it’s just 5 pence a page, which is very competitive.
+
+Sarah: Moving on, many of you have requested more quiet study areas. Well, we’ve listened! Our new &#x27;Silent Study Pods&#x27; are located on the second floor, right at the back, overlooking the park. We have ten individual pods, each equipped with a power outlet and a small desk lamp. These are available on a first-come, first-served basis, and we ask that you respect the quiet policy. No phone calls, please!
+
+Sarah: For our younger visitors, we&#x27;ve transformed the old multi-purpose room on the ground floor, just behind the main reception desk, into a fantastic new &#x27;Children&#x27;s Discovery Zone&#x27;. It&#x27;s brightly coloured, with interactive displays, age-appropriate books, and even a small soft-play area for toddlers. We&#x27;ll be running storytelling sessions there every Saturday morning at 10 AM, starting next week.
+
+Sarah: Now, for those of you interested in local history, our &#x27;Archive and Local History Collection&#x27; has been expanded and moved. It used to be rather tucked away in the basement, but it’s now much more accessible. You&#x27;ll find it on the ground floor, to your right as you enter the main entrance, in the area that was previously the staff break room. We’ve digitised many of our records, so you can access them on the computers there, or request physical documents from the staff.
+
+Sarah: Finally, a quick note on opening hours and an upcoming event. We’re now open from 9 AM to 7 PM, Monday to Friday. On Saturdays, we&#x27;re open from 10 AM until 4 PM. We&#x27;re closed on Sundays, as always. Please note that on bank holidays, we follow Sunday opening hours, which means we’re closed. Oh, actually, a small correction there: we&#x27;re open on bank holidays from 10 AM to 2 PM, so a shorter day, but we are open. My apologies for that confusion!
+
+Sarah: And for a special event, mark your calendars! We’re hosting a free &#x27;Creative Writing Workshop&#x27; for adults. It’s led by acclaimed local author, Mr. James Holloway. The workshop will be held in our new community room, also on the first floor – near the computer suite, actually – on Wednesday, the 17th of next month. Spaces are limited, so please sign up at the reception desk if you&#x27;re interested. I believe the date is the 17th of October. Let me just double check my notes... Ah, yes, that&#x27;s correct, October 17th. We look forward to seeing you all make the most of our new facilities!</pre>
+</details>
+    <details>
+<summary>Questions &amp; answer key</summary>
+<div class="qa-content">
+<h2>Questions</h2>
+<p>Questions 11-13
+Choose the correct letter, A, B, or C.</p>
+<ol>
+<li>
+<p>What is Sarah Jenkins' role at the library?
+    A. Grand Reopening Coordinator
+    B. Head Librarian
+    C. Computer Suite Manager</p>
+</li>
+<li>
+<p>How much does it cost to print more than ten pages for library members?
+    A. 5 pence per page
+    B. 10 pence per page
+    C. Free for all pages</p>
+</li>
+<li>
+<p>Where are the Silent Study Pods located?
+    A. On the first floor, overlooking the park
+    B. On the second floor, at the front
+    C. On the second floor, overlooking the park</p>
+</li>
+</ol>
+<p>Questions 14-17
+Where are the following new facilities located?
+Choose FOUR answers from the box and write the correct letter, A-F, next to questions 14-17.</p>
+<p><strong>Locations</strong>
+A. On the ground floor, behind the main reception desk
+B. On the first floor, in the old periodicals section
+C. On the second floor, at the back
+D. On the ground floor, to your right as you enter
+E. In the basement
+F. On the first floor, near the computer suite</p>
+<ol>
+<li>Computer Suite</li>
+<li>Children's Discovery Zone</li>
+<li>Archive and Local History Collection</li>
+<li>Community Room</li>
+</ol>
+<p>Questions 18-20
+Complete the notes below.
+Write NO MORE THAN TWO WORDS AND/OR A NUMBER for each answer.</p>
+<p><strong>Library Information</strong></p>
+<ul>
+<li>
+<p><strong>Opening Hours:</strong></p>
+<ul>
+<li>Monday to Friday: 9 AM to 7 PM</li>
+<li>Saturday: 10 AM to 4 PM</li>
+<li>Sunday: Closed</li>
+<li>Bank Holidays: 10 AM to 2 PM (A shorter 18. _____)</li>
+</ul>
+</li>
+<li>
+<p><strong>Special Event:</strong></p>
+<ul>
+<li>Event: Creative Writing Workshop</li>
+<li>Led by: Mr. 19. ____</li>
+<li>Date: October 20. ____</li>
+<li>To sign up: Enquire at the reception desk.</li>
+</ul>
+</li>
+</ul>
+<h2>Answer key</h2>
+<ol>
+<li>B</li>
+<li>A</li>
+<li>C</li>
+<li>B</li>
+<li>A</li>
+<li>D</li>
+<li>F</li>
+<li>day</li>
+<li>James Holloway</li>
+<li>17th</li>
+</ol>
+</div>
+</details>
+    <!-- END PART 2 DETAILS -->
   </div>
 
   <div class="part-card">
     <h2>Part 3</h2>
     <div class="meta">Renewable energy group project discussion — dialogue</div>
     <audio controls src="sample-test/part3.mp3"></audio>
-    <div class="links">
-      <a href="sample-test/part3.txt">Transcript</a>
-      <a href="sample-test/questions_and_answers.md">Questions &amp; answer key</a>
-    </div>
+    <!-- BEGIN PART 3 DETAILS -->
+    <details>
+<summary>Transcript</summary>
+<pre># GENDER: Liam=male
+# GENDER: Chloe=female
+# GENDER: Professor Davies=male
+
+Liam: Right, so for our group project on renewable energy, I was thinking we could start by outlining the main types, you know, solar, wind, hydro, that sort of thing.
+
+Chloe: Yeah, that makes sense, Liam. And then perhaps we could delve into the advantages and disadvantages of each. I think that&#x27;s a pretty standard approach, but it ensures we cover all the bases.
+
+Liam: Exactly. And I was thinking, for the research part, I could take the lead on solar and wind power, since I did a bit of reading on those last term for a different module.
+
+Chloe: Oh, that&#x27;s really helpful. I’m happy to look into hydro and geothermal. I find geothermal particularly fascinating, the way it harnesses heat from the Earth&#x27;s core.
+
+Professor Davies: Good morning, everyone. Sorry to interrupt, but I just wanted to check in on your progress for the renewable energy project. How are you both getting on?
+
+Liam: Morning, Professor. We were just discussing the division of labour. I&#x27;m focusing on solar and wind, and Chloe is looking at hydro and geothermal.
+
+Professor Davies: Excellent. That&#x27;s a good spread. Have you thought about the structure of your presentation yet? Remember, the clarity of your argument is paramount.
+
+Chloe: Yes, Professor. We were planning to start with an overview of the energy types, then move onto the pros and cons, and finally, perhaps a section on future trends or policy implications.
+
+Professor Davies: Future trends and policy implications – now that&#x27;s where you can really distinguish yourselves. Many groups just stick to the basics. What specific policy implications do you have in mind, Chloe?
+
+Chloe: Well, I was thinking about government subsidies for renewable sources, and the challenges of integrating them into existing power grids. It&#x27;s not just about generating the energy, but getting it to where it&#x27;s needed efficiently.
+
+Liam: And I think we should definitely include a case study. Perhaps comparing Germany’s Energiewende with, say, the UK’s approach to offshore wind. I read an article that suggested Germany’s transition has been more socially integrated.
+
+Professor Davies: That&#x27;s a very insightful point, Liam. A comparative case study adds significant depth. Just be careful not to make it too broad. Focus on specific aspects of their policies. Now, a quick question about your research methods: are you planning to use primarily academic journals, or will you also incorporate industry reports?
+
+Chloe: I was thinking mostly academic journals, Professor. They tend to be peer-reviewed and more reliable, don&#x27;t they?
+
+Liam: I agree, but I also think industry reports, particularly from large energy firms or government bodies, can offer a more up-to-date perspective on current deployment and economic feasibility. Sometimes academic research can lag a little.
+
+Professor Davies: Liam makes a good point, Chloe. While academic journals are crucial for foundational understanding, industry reports often provide valuable real-world data and current challenges. I&#x27;d suggest a balance. Don&#x27;t rely solely on one type.
+
+Chloe: Okay, that makes sense. I hadn&#x27;t really considered the currency aspect as much. So, a mix of both.
+
+Professor Davies: Indeed. And for your presentation itself, remember the time limit. It&#x27;s fifteen minutes, not twenty, as some students mistakenly believe. Ensure you allocate your time effectively to each section.
+
+Liam: Fifteen minutes, noted. We&#x27;ll practice it to make sure we&#x27;re within the limit.
+
+Professor Davies: Good. And one final thought: consider the environmental impact beyond just carbon emissions. Think about land use, resource extraction, and the disposal of components, like old wind turbine blades or solar panels. That often gets overlooked.
+
+Chloe: Oh, that’s a critical point, Professor. I hadn&#x27;t factored that in much beyond the initial installation. The life cycle impact.
+
+Liam: Me neither. That definitely adds another layer of complexity, but an important one.
+
+Professor Davies: Precisely. It will demonstrate a more holistic understanding of the topic. Alright, I&#x27;ll leave you to it. Good luck with the research, and I look forward to seeing your progress next week.
+
+Liam: Thanks, Professor.
+
+Chloe: Thank you!</pre>
+</details>
+    <details>
+<summary>Questions &amp; answer key</summary>
+<div class="qa-content">
+<h2>Questions</h2>
+<p>Questions 21-25
+Choose the correct letter, A, B or C.</p>
+<ol>
+<li>
+<p>What is the primary focus of Liam's initial research?
+    A. Geothermal and hydro power
+    B. Solar and wind power
+    C. Policy implications of renewable energy</p>
+</li>
+<li>
+<p>Chloe believes that including which section will help the group distinguish their project?
+    A. Advantages and disadvantages of energy types
+    B. Overview of different renewable energy sources
+    C. Future trends and policy implications</p>
+</li>
+<li>
+<p>What specific policy aspect does Chloe intend to research?
+    A. International energy agreements
+    B. Government subsidies and grid integration
+    C. Public acceptance of new energy technologies</p>
+</li>
+<li>
+<p>Liam suggests using which country as a case study?
+    A. The United States
+    B. Germany
+    C. China</p>
+</li>
+<li>
+<p>What does Professor Davies advise regarding research materials?
+    A. To use only academic journals for reliability
+    B. To prioritise industry reports for up-to-date data
+    C. To combine academic journals with industry reports</p>
+</li>
+</ol>
+<p>Questions 26-30
+Who expresses each opinion?</p>
+<p>Write the correct letter, A, B or C, next to questions 26-30.
+NB You may use any letter more than once.</p>
+<p>A. Liam
+B. Chloe
+C. Professor Davies</p>
+<ol>
+<li>It is important to cover all fundamental aspects of the topic.</li>
+<li>A comparative case study will significantly enhance the project's depth.</li>
+<li>Academic research can sometimes be less current than industry information.</li>
+<li>Students often get the presentation time limit wrong.</li>
+<li>The environmental impact of component disposal is frequently ignored.</li>
+</ol>
+<h2>Answer key</h2>
+<ol>
+<li>B</li>
+<li>C</li>
+<li>B</li>
+<li>B</li>
+<li>C</li>
+<li>B</li>
+<li>C</li>
+<li>A</li>
+<li>C</li>
+<li>C</li>
+</ol>
+</div>
+</details>
+    <!-- END PART 3 DETAILS -->
   </div>
 
   <div class="part-card">
     <h2>Part 4</h2>
     <div class="meta">The environmental impact of fast fashion — lecture</div>
     <audio controls src="sample-test/part4.mp3"></audio>
-    <div class="links">
-      <a href="sample-test/part4.txt">Transcript</a>
-      <a href="sample-test/questions_and_answers.md">Questions &amp; answer key</a>
-    </div>
+    <!-- BEGIN PART 4 DETAILS -->
+    <details>
+<summary>Transcript</summary>
+<pre># GENDER: Professor Davies=male
+
+Professor Davies: Good morning everyone. Today we&#x27;re going to delve into a topic that&#x27;s both pervasive in our modern lives and has significant environmental consequences: fast fashion. Specifically, we&#x27;ll be examining its ecological footprint and potential solutions. Fast fashion, as many of you know, is characterised by rapid production cycles, trend-driven designs, and low prices, encouraging frequent consumption.
+
+Professor Davies: Let&#x27;s begin by outlining some of the key environmental impacts. Firstly, there&#x27;s the enormous water footprint. Cotton, a primary material, is incredibly thirsty. Growing just one kilogram of cotton can require anything from ten thousand to twenty thousand litres of water. To put that into perspective, that&#x27;s enough for one person to drink for five to ten years. And this isn&#x27;t just about agriculture; dyeing and finishing processes also consume vast quantities of water, often leading to significant pollution of local water sources if wastewater isn&#x27;t properly treated.
+
+Professor Davies: Secondly, we must consider the chemical pollution. The textile industry uses thousands of different chemicals throughout its supply chain. These include dyes, bleaches, detergents, and various finishing agents. Many of these chemicals are toxic, persistent, and bioaccumulative. They can contaminate soil and water, harming ecosystems and posing serious health risks to workers and communities downstream. For instance, some azo dyes, banned in many regions, are still used and can break down into carcinogenic compounds.
+
+Professor Davies: The third major impact is related to waste generation. The sheer volume of clothing produced and discarded annually is staggering. It&#x27;s estimated that globally, we produce over 100 billion garments each year. Due to the low quality and transient nature of fast fashion items, a significant portion ends up in landfills after only a few wears. In the UK alone, around 300,000 tonnes of clothing are sent to landfill or incinerated each year. Synthetic fibres, such as polyester, can take hundreds of years to decompose, releasing microplastics into the environment in the process. Even natural fibres often don&#x27;t fare much better in modern landfills, where decomposition is inhibited.
+
+Professor Davies: Moving on to carbon emissions. The entire lifecycle of a fast fashion garment, from raw material extraction to manufacturing, transportation, and disposal, contributes significantly to greenhouse gas emissions. Energy-intensive factories, often powered by fossil fuels, coupled with long global supply chains, mean that the industry&#x27;s carbon footprint is substantial. Some estimates suggest the fashion industry accounts for up to 10% of global carbon emissions, which is more than all international flights and maritime shipping combined. This figure is predicted to rise further if current trends continue.
+
+Professor Davies: Now, what are the potential solutions? One key area is technological innovation. This includes developing new, more sustainable materials, such as those made from recycled content or innovative bio-based alternatives like mushroom leather. Another aspect is improving production processes to be more energy-efficient and reduce chemical use, perhaps through closed-loop systems where water and chemicals are reused. Secondly, changes in consumer behaviour are crucial. This involves shifting away from a disposable mindset towards purchasing fewer items of higher quality, repairing clothes, and exploring second-hand options. The rise of clothing rental services is another promising development in this regard.
+
+Professor Davies: Thirdly, and perhaps most importantly, regulatory intervention is essential. Governments can implement stricter environmental regulations on manufacturing processes, enforce extended producer responsibility schemes where brands are accountable for the end-of-life of their products, and offer incentives for sustainable practices. For example, some countries are considering legislation to ban the destruction of unsold new clothing. A crucial element here is proper labelling, allowing consumers to make informed choices. Without robust legislative frameworks, the industry&#x27;s drive for profit often outweighs environmental concerns.
+
+Professor Davies: Finally, education plays a vital role. Raising awareness among consumers about the true cost of their clothing choices, beyond the price tag, can empower them to demand more sustainable options from brands and make more conscious purchasing decisions themselves. This holistic approach, combining innovation, consumer action, regulation, and education, offers the most promising pathway towards mitigating the environmental impact of fast fashion.</pre>
+</details>
+    <details>
+<summary>Questions &amp; answer key</summary>
+<div class="qa-content">
+<h2>Questions</h2>
+<p>Questions 31-36
+Complete the notes below.
+Write ONE WORD ONLY for each answer.</p>
+<p><strong>Environmental Impact of Fast Fashion</strong></p>
+<p><strong>1. Water Footprint</strong>
+*   High demand for water for growing materials (e.g., cotton).
+*   Consumption also high in dyeing and 31. ……………… processes.
+*   Leads to pollution of local water sources.</p>
+<p><strong>2. Chemical Pollution</strong>
+*   Textile industry uses thousands of chemicals (dyes, bleaches, etc.).
+*   Many are 32. ……………… and persistent.
+*   Can cause harm to ecosystems and pose health risks.
+*   Some azo dyes break down into 33. ……………… compounds.</p>
+<p><strong>3. Waste Generation</strong>
+*   Over 100 billion garments produced globally each year.
+*   Low quality leads to quick disposal; 34. ……………… tonnes sent to landfill/incinerated in UK annually.
+*   Synthetic fibres release 35. ……………… as they decompose.</p>
+<p><strong>4. Carbon Emissions</strong>
+*   Significant contribution from entire lifecycle of garments.
+*   Energy-intensive factories and long global 36. ……………… chains.</p>
+<p>Questions 37-40
+Answer the questions below.
+Write NO MORE THAN TWO WORDS for each answer.</p>
+<ol>
+<li>What type of new materials are mentioned as an innovative solution?</li>
+<li>What kind of consumer action involves choosing to pay for temporary use of clothing?</li>
+<li>Besides enforcing producer responsibility, what else can governments ban?</li>
+<li>What is mentioned as a crucial element for allowing consumers to make informed choices?</li>
+</ol>
+<h2>Answer key</h2>
+<ol>
+<li>finishing</li>
+<li>toxic</li>
+<li>carcinogenic</li>
+<li>300,000</li>
+<li>microplastics</li>
+<li>supply</li>
+<li>bio-based</li>
+<li>rental services</li>
+<li>unsold clothing</li>
+<li>proper labelling</li>
+</ol>
+</div>
+</details>
+    <!-- END PART 4 DETAILS -->
   </div>
 </main>
 
