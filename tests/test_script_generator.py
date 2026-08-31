@@ -7,11 +7,13 @@ from src.script_generator import (
     QUIZ_SYSTEM_PROMPT,
     SYSTEM_PROMPT,
     ScriptGenerationError,
+    _expected_question_range,
     _parse_quiz_response,
     _parse_response,
     _recent_topics,
     _record_topic,
     _validate_cast_size,
+    _validate_question_count,
     generate_full_test,
     generate_quiz,
     generate_section,
@@ -19,7 +21,29 @@ from src.script_generator import (
 from src.parser import ScriptParseError, parse_script
 
 
-VALID_PART1_RESPONSE = """<<<TOPIC_CATEGORY>>>
+def _ten_questions(start: int = 1) -> str:
+    return "\n".join(f"{n}. Question {n}?" for n in range(start, start + 10))
+
+
+def _ten_answers(start: int = 1) -> str:
+    return "\n".join(f"{n}. Answer {n}" for n in range(start, start + 10))
+
+
+VALID_PART1_RESPONSE = f"""<<<TOPIC_CATEGORY>>>
+booking/enquiry - car hire
+<<<SCRIPT>>>
+# GENDER: Agent=male
+# GENDER: Client=female
+
+Agent: How can I help you today?
+Client: I'd like to book a car for next week.
+<<<QUESTIONS>>>
+{_ten_questions(1)}
+<<<ANSWERS>>>
+{_ten_answers(1)}
+"""
+
+MISSING_QUESTIONS_PART1_RESPONSE = """<<<TOPIC_CATEGORY>>>
 booking/enquiry - car hire
 <<<SCRIPT>>>
 # GENDER: Agent=male
@@ -29,8 +53,10 @@ Agent: How can I help you today?
 Client: I'd like to book a car for next week.
 <<<QUESTIONS>>>
 1. What does the client want to book?
+2. When does the client want it?
 <<<ANSWERS>>>
 1. A car
+2. Next week
 """
 
 INVALID_PART1_RESPONSE = """<<<TOPIC_CATEGORY>>>
@@ -86,8 +112,8 @@ def test_parse_response_valid():
     topic, script_text, questions, answers = _parse_response(VALID_PART1_RESPONSE, part=1)
     assert topic == "booking/enquiry - car hire"
     assert "Agent: How can I help you today?" in script_text
-    assert "What does the client want to book" in questions
-    assert "A car" in answers
+    assert "1. Question 1?" in questions
+    assert "1. Answer 1" in answers
 
 
 def test_parse_response_missing_blocks_raises():
@@ -96,9 +122,18 @@ def test_parse_response_missing_blocks_raises():
 
 
 def test_parse_response_empty_questions_raises():
-    text = VALID_PART1_RESPONSE.replace(
-        "1. What does the client want to book?", ""
-    ).replace("<<<QUESTIONS>>>\n\n", "<<<QUESTIONS>>>\n")
+    text = """<<<TOPIC_CATEGORY>>>
+booking/enquiry - car hire
+<<<SCRIPT>>>
+# GENDER: Agent=male
+# GENDER: Client=female
+
+Agent: How can I help you today?
+Client: I'd like to book a car for next week.
+<<<QUESTIONS>>>
+<<<ANSWERS>>>
+1. A car
+"""
     with pytest.raises(ScriptParseError, match="QUESTIONS"):
         _parse_response(text, part=1)
 
@@ -124,6 +159,43 @@ def test_validate_cast_size_monologue_ok():
 def test_validate_cast_size_section3_range():
     script = parse_script("A: hi\nB: hey\nC: hello\n", part=3)
     _validate_cast_size(script, part=3)  # 3 speakers, within 2-4
+
+
+# --- question count validation -----------------------------------------
+
+
+def test_expected_question_range_per_part():
+    assert list(_expected_question_range(1)) == list(range(1, 11))
+    assert list(_expected_question_range(2)) == list(range(11, 21))
+    assert list(_expected_question_range(3)) == list(range(21, 31))
+    assert list(_expected_question_range(4)) == list(range(31, 41))
+
+
+def test_validate_question_count_accepts_full_set():
+    text = "\n".join(f"{n}. Question?" for n in range(11, 21))
+    _validate_question_count(text, part=2)  # should not raise
+
+
+def test_validate_question_count_rejects_gap():
+    # This is the exact real-world bug: Part 2 stopped at 17 instead of 20.
+    text = "\n".join(f"{n}. Question?" for n in list(range(11, 18)))
+    with pytest.raises(ScriptParseError, match=r"\[18, 19, 20\]"):
+        _validate_question_count(text, part=2)
+
+
+def test_validate_question_count_handles_bare_number_format():
+    # Real Gemini output mixes "N. text" and "N text" (no punctuation) for
+    # multiple-choice stems — both must be recognised.
+    text = "\n".join(f"{n} What is the answer?" for n in range(1, 11))
+    _validate_question_count(text, part=1)  # should not raise
+
+
+def test_validate_question_count_ignores_prose_numbers():
+    # Numbers embedded in ordinary sentences (prices, counts, times) must not
+    # be mistaken for question markers.
+    text = "\n".join(f"{n}. Question?" for n in range(1, 11))
+    text += "\nWe have over 50 classes a week, open 24 hours, with a 20% discount."
+    _validate_question_count(text, part=1)  # should not raise — no false positive triggered
 
 
 # --- topic log --------------------------------------------------------
@@ -216,6 +288,26 @@ def test_generate_section_exhausts_retries_raises(tmp_path, monkeypatch):
     assert _recent_topics(1, log_path) == []
 
 
+def test_generate_section_missing_questions_triggers_retry(tmp_path, monkeypatch):
+    """The real bug this guards against: Gemini under-generated Part 2's quiz
+    (only 7 of 10 questions, silently skipping 18-20) with no other part of
+    the format looking wrong — nothing else would have caught this."""
+    log_path = tmp_path / "log.json"
+    fake_client = MagicMock()
+    fake_client.models.generate_content.side_effect = [
+        _fake_response(MISSING_QUESTIONS_PART1_RESPONSE),
+        _fake_response(VALID_PART1_RESPONSE),
+    ]
+    monkeypatch.setattr("src.script_generator._get_client", lambda: fake_client)
+
+    result = generate_section(1, log_path=log_path)
+
+    assert fake_client.models.generate_content.call_count == 2
+    second_call_contents = fake_client.models.generate_content.call_args_list[1].kwargs["contents"]
+    assert any("missing question" in c for c in second_call_contents if isinstance(c, str))
+    assert "3" in str(second_call_contents)  # names the missing question numbers
+
+
 def test_generate_section_wraps_api_errors(tmp_path, monkeypatch):
     log_path = tmp_path / "log.json"
     fake_client = MagicMock()
@@ -250,9 +342,12 @@ def test_generate_full_test_defaults_to_all_four_parts(tmp_path, monkeypatch):
     fake_client = MagicMock()
     fake_client.models.generate_content.return_value = _fake_response(VALID_PART1_RESPONSE)
     monkeypatch.setattr("src.script_generator._get_client", lambda: fake_client)
-    # generate_section validates against `part`, but our fixture text is only
-    # valid as a 2-speaker script — restrict this test to checking call count/keys.
+    # generate_section validates cast size and question numbering against
+    # `part`, but our fixture always returns the same fixed Part-1-shaped
+    # content regardless of which part is being requested — bypass both
+    # part-specific checks so this test can focus on call count/keys.
     monkeypatch.setattr("src.script_generator._validate_cast_size", lambda script, part: None)
+    monkeypatch.setattr("src.script_generator._validate_question_count", lambda questions, part: None)
 
     result = generate_full_test(log_path=log_path)
 
@@ -275,10 +370,18 @@ def test_generate_full_test_single_section(tmp_path, monkeypatch):
 # --- generate_quiz ----------------------------------------------------------
 
 
-VALID_QUIZ_RESPONSE = """<<<QUESTIONS>>>
+VALID_QUIZ_RESPONSE = f"""<<<QUESTIONS>>>
+{_ten_questions(1)}
+<<<ANSWERS>>>
+{_ten_answers(1)}
+"""
+
+MISSING_QUESTIONS_QUIZ_RESPONSE = """<<<QUESTIONS>>>
 1. What does the client want to book?
+2. When does the client want it?
 <<<ANSWERS>>>
 1. A car
+2. Next week
 """
 
 INVALID_QUIZ_RESPONSE = "no markers here at all"
@@ -293,8 +396,8 @@ def test_quiz_system_prompt_forbids_rewriting_script():
 
 def test_parse_quiz_response_valid():
     questions, answers = _parse_quiz_response(VALID_QUIZ_RESPONSE)
-    assert "What does the client want to book" in questions
-    assert "A car" in answers
+    assert "1. Question 1?" in questions
+    assert "1. Answer 1" in answers
 
 
 def test_parse_quiz_response_missing_blocks_raises():
@@ -309,11 +412,12 @@ def test_generate_quiz_success(monkeypatch):
 
     questions, answers = generate_quiz(1, "Agent: How can I help?\nClient: I'd like a car.\n")
 
-    assert "What does the client want to book" in questions
-    assert "A car" in answers
+    assert "1. Question 1?" in questions
+    assert "1. Answer 1" in answers
     call_kwargs = fake_client.models.generate_content.call_args.kwargs
     assert call_kwargs["model"] == "gemini-2.5-flash"
     assert "Agent: How can I help?" in call_kwargs["contents"][0]
+    assert "1-10" in call_kwargs["contents"][0]
 
 
 def test_generate_quiz_retries_then_succeeds(monkeypatch):
@@ -327,7 +431,22 @@ def test_generate_quiz_retries_then_succeeds(monkeypatch):
     questions, answers = generate_quiz(1, "Agent: hi\nClient: hello\n")
 
     assert fake_client.models.generate_content.call_count == 2
-    assert "What does the client want to book" in questions
+    assert "1. Question 1?" in questions
+
+
+def test_generate_quiz_missing_questions_triggers_retry(monkeypatch):
+    fake_client = MagicMock()
+    fake_client.models.generate_content.side_effect = [
+        _fake_response(MISSING_QUESTIONS_QUIZ_RESPONSE),
+        _fake_response(VALID_QUIZ_RESPONSE),
+    ]
+    monkeypatch.setattr("src.script_generator._get_client", lambda: fake_client)
+
+    questions, answers = generate_quiz(1, "Agent: hi\nClient: hello\n")
+
+    assert fake_client.models.generate_content.call_count == 2
+    second_call_contents = fake_client.models.generate_content.call_args_list[1].kwargs["contents"]
+    assert any("missing question" in c for c in second_call_contents if isinstance(c, str))
 
 
 def test_generate_quiz_exhausts_retries_raises(monkeypatch):

@@ -51,52 +51,71 @@ Number of group classes per week: over 10. __________
 
 ## Questions
 
-Questions 11-14
+Questions 11-13
 Choose the correct letter, A, B, or C.
 
-11 What is a new benefit for library members using the computer suite?
-A. Unlimited free printing.
-B. Printing up to ten pages for free.
-C. Reduced cost for all printing.
+11. What is Sarah Jenkins' role at the library?
+    A. Grand Reopening Coordinator
+    B. Head Librarian
+    C. Computer Suite Manager
 
-12 Where are the new 'Silent Study Pods' located?
-A. On the first floor.
-B. On the second floor.
-C. On the ground floor.
+12. How much does it cost to print more than ten pages for library members?
+    A. 5 pence per page
+    B. 10 pence per page
+    C. Free for all pages
 
-13 What has replaced the old multi-purpose room on the ground floor?
-A. The new computer suite.
-B. The 'Archive and Local History Collection'.
-C. The 'Children's Discovery Zone'.
+13. Where are the Silent Study Pods located?
+    A. On the first floor, overlooking the park
+    B. On the second floor, at the front
+    C. On the second floor, overlooking the park
 
-14 What is the library's policy on bank holiday opening hours?
-A. The library is closed all day.
-B. The library is open for a full day.
-C. The library is open for a shorter period.
+Questions 14-17
+Where are the following new facilities located?
+Choose FOUR answers from the box and write the correct letter, A-F, next to questions 14-17.
 
-Questions 15-17
-Complete the table below.
+**Locations**
+A. On the ground floor, behind the main reception desk
+B. On the first floor, in the old periodicals section
+C. On the second floor, at the back
+D. On the ground floor, to your right as you enter
+E. In the basement
+F. On the first floor, near the computer suite
+
+14. Computer Suite
+15. Children's Discovery Zone
+16. Archive and Local History Collection
+17. Community Room
+
+Questions 18-20
+Complete the notes below.
 Write NO MORE THAN TWO WORDS AND/OR A NUMBER for each answer.
 
-**Central Library Upcoming Event: Creative Writing Workshop**
+**Library Information**
 
-| Detail         | Information             |
-| :------------- | :---------------------- |
-| **Led by**     | Mr. James Holloway      |
-| **Location**   | Community Room          |
-| **Floor**      | 15. \_ \_ \_ \_ \_ \_ \_ |
-| **Date**       | 16. \_ \_ \_ \_ \_ \_ \_ |
-| **Cost**       | 17. \_ \_ \_ \_ \_ \_ \_ |
+*   **Opening Hours:**
+    *   Monday to Friday: 9 AM to 7 PM
+    *   Saturday: 10 AM to 4 PM
+    *   Sunday: Closed
+    *   Bank Holidays: 10 AM to 2 PM (A shorter 18. _____)
+
+*   **Special Event:**
+    *   Event: Creative Writing Workshop
+    *   Led by: Mr. 19. ____
+    *   Date: October 20. ____
+    *   To sign up: Enquire at the reception desk.
 
 ## Answer key
 
 11. B
-12. B
+12. A
 13. C
-14. C
-15. first floor
-16. October 17th / 17th October
-17. Free
+14. B
+15. A
+16. D
+17. F
+18. day
+19. James Holloway
+20. 17th
 
 # Part 3 — Academic discussion - group project on renewable energy
 

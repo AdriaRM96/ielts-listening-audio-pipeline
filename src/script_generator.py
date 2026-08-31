@@ -79,6 +79,7 @@ SYSTEM_PROMPT = """You are an expert IELTS Listening test writer, generating one
 - Never reuse or imitate a real IELTS recording — invent the scenario and dialogue fresh every time.
 - Numbers, dates, spelling of names, and proper nouns are the highest-frequency trap across all sections — include at least one such detail.
 - Question order must follow audio chronology, not question-type grouping. Trace the script top to bottom and number questions in the order their answers are spoken, even if that interleaves or reorders question types.
+- Every section has exactly 10 questions — never more, never fewer. Real IELTS Listening is always 40 questions total, 10 per part, numbered continuously across the whole test with no gaps (Part 1 = 1-10, Part 2 = 11-20, Part 3 = 21-30, Part 4 = 31-40). Before finishing, count your own questions and confirm there are exactly 10, numbered correctly for this part.
 
 ## Script-writing rules
 
@@ -114,6 +115,7 @@ QUIZ_SYSTEM_PROMPT = """You are an expert IELTS Listening test writer. You will 
 - Question order must follow audio chronology, not question-type grouping. Trace the transcript top to bottom and number questions in the order their answers are spoken, even if that interleaves or reorders question types.
 - Include word-limit instructions where relevant (e.g. "Write NO MORE THAN TWO WORDS").
 - Base every question strictly on information actually present in the transcript — never invent details not in the text.
+- Write exactly 10 questions — never more, never fewer. You'll be told the exact question numbers to use for this section; before finishing, count your own questions and confirm there are exactly 10, using precisely that range.
 
 ## Output format
 
@@ -269,11 +271,44 @@ def _validate_cast_size(script: ParsedScript, part: int) -> None:
         )
 
 
+_QUESTION_NUMBER_RE = re.compile(r"(?<!\d)(\d{1,2})(?!\d)(?:[.\):]|(?=\s[A-Z_]))")
+
+
+def _expected_question_range(part: int) -> range:
+    """Real IELTS Listening is always 40 questions, 10 per part, numbered continuously."""
+    start = 10 * (part - 1) + 1
+    return range(start, start + 10)
+
+
+def _validate_question_count(questions_text: str, part: int) -> None:
+    """Every IELTS Listening section has exactly 10 questions — check none are missing.
+
+    Gemini can silently under-generate a section (e.g. stop at question 7 of a
+    10-question block) without any other part of the format looking wrong, so
+    this can't be caught by the transcript parser — it needs its own check.
+    """
+    expected = set(_expected_question_range(part))
+    found = {
+        int(m.group(1))
+        for m in _QUESTION_NUMBER_RE.finditer(questions_text)
+        if int(m.group(1)) in expected
+    }
+    missing = sorted(expected - found)
+    if missing:
+        lo, hi = min(expected), max(expected)
+        raise ScriptParseError(
+            f"Part {part} question set is missing question(s) {missing} — IELTS Listening "
+            f"requires exactly 10 questions per part, numbered {lo}-{hi} continuously with no gaps."
+        )
+
+
 def _user_prompt(part: int, topic_hint: str | None, recent_topics: list[str]) -> str:
+    expected = _expected_question_range(part)
     lines = [
         f"Generate Part {part} of a fresh IELTS Listening mock test now.",
         "",
         SECTION_SPECS[part],
+        f"\nNumber the questions {expected.start}-{expected[-1]} (exactly 10 questions).",
     ]
     if recent_topics:
         lines.append(
@@ -330,6 +365,7 @@ def generate_section(
             topic, script_text, questions, answers = _parse_response(response_text, part)
             script = parse_script(script_text, part)
             _validate_cast_size(script, part)
+            _validate_question_count(questions, part)
         except ScriptParseError as exc:
             last_error = exc
             print(f"  [Gemini] Part {part} attempt {attempt} failed validation: {exc}", file=sys.stderr)
@@ -377,8 +413,11 @@ def generate_quiz(part: int, script_text: str) -> tuple[str, str]:
     from google.genai import types
 
     client = _get_client()
+    expected = _expected_question_range(part)
     contents: list = [
-        f"{SECTION_SPECS[part]}\n\nHere is the transcript for this section:\n\n{script_text}"
+        f"{SECTION_SPECS[part]}\n\n"
+        f"Number the questions {expected.start}-{expected[-1]} (exactly 10 questions).\n\n"
+        f"Here is the transcript for this section:\n\n{script_text}"
     ]
     last_error: Exception | None = None
 
@@ -406,7 +445,9 @@ def generate_quiz(part: int, script_text: str) -> tuple[str, str]:
         response_text = response.text or ""
 
         try:
-            return _parse_quiz_response(response_text)
+            questions, answers = _parse_quiz_response(response_text)
+            _validate_question_count(questions, part)
+            return questions, answers
         except ScriptParseError as exc:
             last_error = exc
             print(f"  [Gemini] Part {part} quiz attempt {attempt} failed validation: {exc}", file=sys.stderr)
