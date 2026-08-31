@@ -6,14 +6,9 @@ Generates complete IELTS Listening practice tests — transcript, matching quest
 
 ## Listen to a real example
 
-A complete 4-part test generated end-to-end by this tool — download any `.mp3` below to listen (GitHub serves raw files as downloads, not inline playback), no setup or cloning needed. [Questions and answer key for all four parts](examples/sample-test/questions_and_answers.md).
+**🎧 [Listen to a full 4-part test on the demo page](https://adriarm96.github.io/ielts-listening-audio-pipeline/)** — generated end-to-end by this tool, playable right in your browser, no setup or cloning needed.
 
-| Part | Type | Audio | Transcript |
-|---|---|---|---|
-| 1 | Gym membership enquiry (dialogue) | [part1.mp3](examples/sample-test/part1.mp3) | [part1.txt](examples/sample-test/part1.txt) |
-| 2 | New library facilities announcement (monologue) | [part2.mp3](examples/sample-test/part2.mp3) | [part2.txt](examples/sample-test/part2.txt) |
-| 3 | Renewable energy group project discussion (dialogue) | [part3.mp3](examples/sample-test/part3.mp3) | [part3.txt](examples/sample-test/part3.txt) |
-| 4 | The environmental impact of fast fashion (lecture) | [part4.mp3](examples/sample-test/part4.mp3) | [part4.txt](examples/sample-test/part4.txt) |
+Prefer to grab the raw files instead? [Questions and answer key](docs/sample-test/questions_and_answers.md), or download any `.mp3` directly: [part1](docs/sample-test/part1.mp3) · [part2](docs/sample-test/part2.mp3) · [part3](docs/sample-test/part3.mp3) · [part4](docs/sample-test/part4.mp3) (with matching [transcripts](docs/sample-test/)).
 
 ---
 
