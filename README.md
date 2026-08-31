@@ -4,6 +4,19 @@
 
 Generates complete IELTS Listening practice tests — transcript, matching questions and answer key, and natural-sounding .mp3 audio — using Gemini and [Google Cloud Text-to-Speech](https://cloud.google.com/text-to-speech). Distinct voices are assigned automatically by speaker and gender: British English throughout Parts 1 and 2, and a mix of British, Australian, Indian, and American accents in Parts 3 and 4, matching how the real exam sometimes varies accents in its harder sections.
 
+## Listen to a real example
+
+A complete 4-part test generated end-to-end by this tool — click any `.mp3` to play it in your browser, no setup or cloning needed. [Questions and answer key for all four parts](examples/sample-test/questions_and_answers.md).
+
+| Part | Type | Audio | Transcript |
+|---|---|---|---|
+| 1 | Gym membership enquiry (dialogue) | [part1.mp3](examples/sample-test/part1.mp3) | [part1.txt](examples/sample-test/part1.txt) |
+| 2 | New library facilities announcement (monologue) | [part2.mp3](examples/sample-test/part2.mp3) | [part2.txt](examples/sample-test/part2.txt) |
+| 3 | Renewable energy group project discussion (dialogue) | [part3.mp3](examples/sample-test/part3.mp3) | [part3.txt](examples/sample-test/part3.txt) |
+| 4 | The environmental impact of fast fashion (lecture) | [part4.mp3](examples/sample-test/part4.mp3) | [part4.txt](examples/sample-test/part4.txt) |
+
+---
+
 Two ways to use it:
 - **Fully automatic:** `python run.py --generate` — no input needed. Gemini writes a fresh 4-part mock test, this tool turns it into audio plus a matching quiz.
 - **Bring your own transcript:** write or paste your own `part1.txt`-`part4.txt` (format shown below) into `transcripts/`, then `python run.py`. Add `--quiz` if you also want Gemini to write a matching quiz for it.

@@ -1,0 +1,51 @@
+# GENDER: Liam=male
+# GENDER: Chloe=female
+# GENDER: Professor Davies=male
+
+Liam: Right, so for our group project on renewable energy, I was thinking we could start by outlining the main types, you know, solar, wind, hydro, that sort of thing.
+
+Chloe: Yeah, that makes sense, Liam. And then perhaps we could delve into the advantages and disadvantages of each. I think that's a pretty standard approach, but it ensures we cover all the bases.
+
+Liam: Exactly. And I was thinking, for the research part, I could take the lead on solar and wind power, since I did a bit of reading on those last term for a different module.
+
+Chloe: Oh, that's really helpful. I’m happy to look into hydro and geothermal. I find geothermal particularly fascinating, the way it harnesses heat from the Earth's core.
+
+Professor Davies: Good morning, everyone. Sorry to interrupt, but I just wanted to check in on your progress for the renewable energy project. How are you both getting on?
+
+Liam: Morning, Professor. We were just discussing the division of labour. I'm focusing on solar and wind, and Chloe is looking at hydro and geothermal.
+
+Professor Davies: Excellent. That's a good spread. Have you thought about the structure of your presentation yet? Remember, the clarity of your argument is paramount.
+
+Chloe: Yes, Professor. We were planning to start with an overview of the energy types, then move onto the pros and cons, and finally, perhaps a section on future trends or policy implications.
+
+Professor Davies: Future trends and policy implications – now that's where you can really distinguish yourselves. Many groups just stick to the basics. What specific policy implications do you have in mind, Chloe?
+
+Chloe: Well, I was thinking about government subsidies for renewable sources, and the challenges of integrating them into existing power grids. It's not just about generating the energy, but getting it to where it's needed efficiently.
+
+Liam: And I think we should definitely include a case study. Perhaps comparing Germany’s Energiewende with, say, the UK’s approach to offshore wind. I read an article that suggested Germany’s transition has been more socially integrated.
+
+Professor Davies: That's a very insightful point, Liam. A comparative case study adds significant depth. Just be careful not to make it too broad. Focus on specific aspects of their policies. Now, a quick question about your research methods: are you planning to use primarily academic journals, or will you also incorporate industry reports?
+
+Chloe: I was thinking mostly academic journals, Professor. They tend to be peer-reviewed and more reliable, don't they?
+
+Liam: I agree, but I also think industry reports, particularly from large energy firms or government bodies, can offer a more up-to-date perspective on current deployment and economic feasibility. Sometimes academic research can lag a little.
+
+Professor Davies: Liam makes a good point, Chloe. While academic journals are crucial for foundational understanding, industry reports often provide valuable real-world data and current challenges. I'd suggest a balance. Don't rely solely on one type.
+
+Chloe: Okay, that makes sense. I hadn't really considered the currency aspect as much. So, a mix of both.
+
+Professor Davies: Indeed. And for your presentation itself, remember the time limit. It's fifteen minutes, not twenty, as some students mistakenly believe. Ensure you allocate your time effectively to each section.
+
+Liam: Fifteen minutes, noted. We'll practice it to make sure we're within the limit.
+
+Professor Davies: Good. And one final thought: consider the environmental impact beyond just carbon emissions. Think about land use, resource extraction, and the disposal of components, like old wind turbine blades or solar panels. That often gets overlooked.
+
+Chloe: Oh, that’s a critical point, Professor. I hadn't factored that in much beyond the initial installation. The life cycle impact.
+
+Liam: Me neither. That definitely adds another layer of complexity, but an important one.
+
+Professor Davies: Precisely. It will demonstrate a more holistic understanding of the topic. Alright, I'll leave you to it. Good luck with the research, and I look forward to seeing your progress next week.
+
+Liam: Thanks, Professor.
+
+Chloe: Thank you!

@@ -1,0 +1,32 @@
+# GENDER: Sarah=female
+# GENDER: Mark=male
+
+Sarah: Good morning, City Fitness. How can I help you?
+Mark: Hello. Yes, I'm calling to enquire about your gym memberships. I'm new to the area and looking for a local gym.
+Sarah: Of course. We have a few options depending on what you're looking for. Can I get your name first, please?
+Mark: Certainly. It's Mark Johnson. That's J-O-H-N-S-O-N.
+Sarah: Thank you, Mark. And what's your current postcode, if you don't mind me asking? We're running a special offer for residents in certain areas.
+Mark: Oh, interesting. It's NE2 6TY.
+Sarah: NE2 6TY. Got it. Okay, so based on your postcode, you would indeed qualify for our introductory offer. It's a 20% discount on our standard annual membership for the first year.
+Mark: That sounds good. What does the standard annual membership include?
+Sarah: The standard annual membership gives you unlimited access to all gym facilities, including the swimming pool and sauna. You also get a complimentary fitness assessment with one of our trainers, and access to all group classes.
+Mark: All group classes? Even things like spinning and yoga?
+Sarah: Yes, that's right. All of them. And we have over 50 classes a week.
+Mark: Wow, that's a lot. And what about the cost?
+Sarah: Okay, so the full price for the annual membership is usually five hundred pounds. With your postcode discount, that brings it down to four hundred pounds for the first year. Or, if you prefer to pay monthly, it's forty pounds a month, but that option doesn't include the discount, so it works out a little more expensive overall.
+Mark: Hmm, four hundred pounds for the year sounds like a good deal. Is there an enrolment fee?
+Sarah: No, there isn't an enrolment fee for the annual membership. There's just a one-off administration charge of twenty-five pounds when you sign up.
+Mark: Twenty-five pounds. Okay, that's reasonable. And are there any off-peak options? I mostly plan to come in the mornings or late evenings.
+Sarah: We do have an off-peak membership, yes. It's specifically for those who use the gym between 9 AM and 4 PM on weekdays, or after 7 PM. Also, all day on weekends.
+Mark: And how much is that one?
+Sarah: The off-peak annual membership is three hundred and fifty pounds. It doesn't include the postcode discount, but it's still our most economical option if your schedule fits.
+Mark: Right, three fifty. Is that including the admin fee?
+Sarah: No, the twenty-five pound administration charge applies to all memberships. So that would be three hundred and seventy-five pounds in total for the off-peak.
+Mark: Got it. And what about if I just wanted access to the pool, not the gym? I'm a keen swimmer.
+Sarah: We used to offer a 'swim-only' membership, actually, but we discontinued it last year due to low demand. Now, all memberships include access to all facilities.
+Mark: Ah, I see. So the annual membership for four hundred pounds, or the off-peak for three seventy-five. I think I'm leaning towards the off-peak option. My work schedule is pretty flexible.
+Sarah: Excellent. If you'd like to sign up, I can process that for you over the phone, or you can come in and have a look around first. Our address is 14 Riverdale Road. That's R-I-V-E-R-D-A-L-E.
+Mark: Riverdale Road. Okay. I might pop in tomorrow morning. What time do you open?
+Sarah: We open at 6 AM during the week and 8 AM on weekends. The best time to visit would probably be around 10 AM, as it's usually quieter then. Just ask for Eleanor at reception. She can give you a tour.
+Mark: Eleanor, got it. Thanks for all your help, Sarah.
+Sarah: You're very welcome, Mark. Have a good day.
