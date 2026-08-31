@@ -2,16 +2,17 @@
 .env
 .env.*
 !.env.example
-*-key.json
-*-credentials.json
-service-account*.json
-application_default_credentials.json
+# Blanket JSON exclude: GCP service-account keys have no fixed naming
+# convention — the console's own default download is
+# <project-id>-<random-hash>.json, which no filename-pattern glob reliably
+# catches. Nothing in this repo needs a tracked .json file (checked via
+# `git ls-files | grep json` — empty), so there's no exception to carve out.
+*.json
 *.pem
 
-# Generated audio output and voice/topic rotation state
+# Generated audio output (voice/topic rotation state is *.json, already
+# covered by the blanket exclude above)
 output/
-voice_usage_log.json
-script_generation_log.json
 
 # Python
 __pycache__/
