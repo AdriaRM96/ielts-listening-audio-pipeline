@@ -2,9 +2,11 @@
 
 [![Tests](https://github.com/AdriaRM96/ielts-listening-audio-pipeline/actions/workflows/tests.yml/badge.svg)](https://github.com/AdriaRM96/ielts-listening-audio-pipeline/actions/workflows/tests.yml)
 
-Turns IELTS Listening practice transcripts into natural-sounding .mp3 audio using [Google Cloud Text-to-Speech](https://cloud.google.com/text-to-speech), with distinct voices assigned automatically by speaker and gender — British English throughout Parts 1 and 2, and a mix of British, Australian, Indian, and American accents in Parts 3 and 4, matching how the real exam sometimes varies accents in its harder sections.
+Generates complete IELTS Listening practice tests — transcript, matching questions and answer key, and natural-sounding .mp3 audio — using Gemini and [Google Cloud Text-to-Speech](https://cloud.google.com/text-to-speech). Distinct voices are assigned automatically by speaker and gender: British English throughout Parts 1 and 2, and a mix of British, Australian, Indian, and American accents in Parts 3 and 4, matching how the real exam sometimes varies accents in its harder sections.
 
-You bring the transcripts (four files, `part1.txt` to `part4.txt`), this tool does the rest: it reads each one, picks appropriate voices, and writes out a full set of practice audio files.
+Two ways to use it:
+- **Fully automatic:** `python run.py --generate` — no input needed. Gemini writes a fresh 4-part mock test, this tool turns it into audio plus a matching quiz.
+- **Bring your own transcript:** write or paste your own `part1.txt`-`part4.txt` (format shown below) into `transcripts/`, then `python run.py`. Add `--quiz` if you also want Gemini to write a matching quiz for it.
 
 ---
 
@@ -123,7 +125,9 @@ That's it — no new key, no new `.env` entry. See [Step 4's "Optional: generate
 
 ## Step 4 — Generate your audio
 
-Place your four transcript files (`part1.txt`, `part2.txt`, `part3.txt`, `part4.txt`) into a folder named `transcripts/` in this project (create it if it doesn't exist). These come from the matching IELTS Listening transcript generator — the format is fixed:
+You have two options here: skip straight to [generating everything automatically](#optional-generate-the-script-automatically-with-gemini) with `--generate` (no transcript needed), or supply your own transcripts as described below.
+
+To bring your own, place four transcript files (`part1.txt`, `part2.txt`, `part3.txt`, `part4.txt`) into a folder named `transcripts/` in this project (create it if it doesn't exist). The format is fixed — each file starts with one `# GENDER:` line per speaker, then a blank line, then the dialogue as `Speaker: line`:
 
 ```
 # GENDER: Examiner=male
@@ -132,6 +136,8 @@ Place your four transcript files (`part1.txt`, `part2.txt`, `part3.txt`, `part4.
 Examiner: Good morning. Can you tell me your name, please?
 Candidate: Yes, my name is Sarah Thompson.
 ```
+
+You can write this by hand, or paste one in from anywhere else — the parser only cares that it matches this format. (If you happen to use Claude and have access to the `ielts-listening-generator` skill, that produces files in exactly this format too — but it's not required; `--generate` covers the same need without it.)
 
 Then run:
 
